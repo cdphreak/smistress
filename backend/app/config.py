@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     chat_model: str = "llama3.1"
     vision_model: str | None = None
     database_url: str = "postgresql+psycopg://smistress:smistress@localhost:5432/smistress"
+    test_database_url: str = "postgresql+psycopg://smistress:smistress@localhost:5432/smistress_test"
     falkordb_url: str = "redis://localhost:6379"
 
     @property
