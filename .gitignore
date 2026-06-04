@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Env
+.env
+
+# Node / SvelteKit
+node_modules/
+.svelte-kit/
+frontend/build/
+dist/
