@@ -8,3 +8,4 @@ from app.db.models.profile import (  # noqa: F401
     SubProfile,
     Toy,
 )
+from app.db.models.task import Task  # noqa: F401
