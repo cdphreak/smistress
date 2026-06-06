@@ -11,6 +11,7 @@ dependencies = [
   "sqlalchemy[asyncio]>=2.0",
   "alembic>=1.13",
   "psycopg[binary]>=3.2",
+  "graphiti-core[falkordb]>=0.3",
 ]
 
 [dependency-groups]
