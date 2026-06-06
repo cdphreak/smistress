@@ -10,6 +10,8 @@ from app.schemas.onboarding import (
     ArchetypeResultOut,
     ArchetypeSubmission,
     KinkSheetIn,
+    ToyIn,
+    ToyOut,
 )
 from app.services import profile as svc
 from app.services.archetype import score_archetypes, unknown_answer_ids
@@ -57,3 +59,29 @@ async def put_kinks(
         raise _not_found(profile_id)
     await session.commit()
     return {"count": len(body.entries)}
+
+
+@router.post("/{profile_id}/toys", response_model=ToyOut, status_code=status.HTTP_201_CREATED)
+async def add_toy(
+    profile_id: uuid.UUID,
+    body: ToyIn,
+    session: AsyncSession = Depends(get_session),
+) -> ToyOut:
+    try:
+        toy = await svc.add_toy(session, profile_id, body)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    await session.commit()
+    return ToyOut.model_validate(toy)
+
+
+@router.get("/{profile_id}/toys", response_model=list[ToyOut])
+async def list_toys(
+    profile_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> list[ToyOut]:
+    try:
+        toys = await svc.list_toys(session, profile_id)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    return [ToyOut.model_validate(t) for t in toys]

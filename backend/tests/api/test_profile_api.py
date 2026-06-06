@@ -68,3 +68,18 @@ async def test_put_kinks_rejects_bad_rating(client):
         {"kink": "bondage", "rating": "not_a_rating"},
     ]})
     assert r.status_code == 422
+
+
+async def test_add_and_list_toys(client):
+    pid = await _new_profile(client)
+    r = await client.post(f"/profile/{pid}/toys", json={
+        "name": "Apex", "type": "vibrator", "intiface_capable": True,
+    })
+    assert r.status_code == 201
+    assert r.json()["intiface_capable"] is True
+
+    r = await client.get(f"/profile/{pid}/toys")
+    assert r.status_code == 200
+    toys = r.json()
+    assert len(toys) == 1
+    assert toys[0]["name"] == "Apex"
