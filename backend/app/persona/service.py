@@ -9,6 +9,8 @@ from app.db.enums import KinkRating, TaskStatus
 from app.db.models.economy import DenialTimer, EconomyState
 from app.db.models.profile import KinkEntry
 from app.db.models.task import Task
+from app.llm.provider import LLMProvider
+from app.llm.types import ChatMessage, ChatResult
 from app.persona.character_block import render_character_block
 from app.persona.compiler import compile_system_prompt
 from app.persona.disposition import MOOD_WINDOW, Disposition, compute_disposition
@@ -101,3 +103,17 @@ async def compile_persona_prompt(
         disposition=disposition,
         memory=memory,
     )
+
+
+async def generate_reply(
+    session: AsyncSession,
+    profile_id: uuid.UUID,
+    conversation: list[ChatMessage],
+    provider: LLMProvider,
+    *,
+    memory: str | None = None,
+) -> ChatResult:
+    """Compile the persona prompt and get a plain reply (no tools — tool calls are M6)."""
+    system_prompt = await compile_persona_prompt(session, profile_id, memory=memory)
+    messages = [ChatMessage(role="system", content=system_prompt), *conversation]
+    return await provider.chat(messages)
