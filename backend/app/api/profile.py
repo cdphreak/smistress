@@ -9,6 +9,7 @@ from app.db.session import get_session
 from app.schemas.onboarding import (
     ArchetypeResultOut,
     ArchetypeSubmission,
+    KinkSheetIn,
 )
 from app.services import profile as svc
 from app.services.archetype import score_archetypes, unknown_answer_ids
@@ -42,3 +43,17 @@ async def submit_archetype(
         raise _not_found(profile_id)
     await session.commit()
     return ArchetypeResultOut(scores=scores)
+
+
+@router.put("/{profile_id}/kinks")
+async def put_kinks(
+    profile_id: uuid.UUID,
+    body: KinkSheetIn,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    try:
+        await svc.replace_kinks(session, profile_id, body.entries)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    await session.commit()
+    return {"count": len(body.entries)}

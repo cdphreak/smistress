@@ -43,3 +43,28 @@ async def test_archetype_on_missing_profile_404(client):
     import uuid
     r = await client.post(f"/profile/{uuid.uuid4()}/archetype", json={"answers": {}})
     assert r.status_code == 404
+
+
+async def test_put_kinks_replaces_sheet(client):
+    pid = await _new_profile(client)
+    r = await client.put(f"/profile/{pid}/kinks", json={"entries": [
+        {"kink": "bondage", "rating": "favorite"},
+        {"kink": "humiliation", "rating": "soft_limit"},
+    ]})
+    assert r.status_code == 200
+    assert r.json()["count"] == 2
+
+    # full replace: a smaller sheet wins
+    r = await client.put(f"/profile/{pid}/kinks", json={"entries": [
+        {"kink": "spanking", "rating": "like"},
+    ]})
+    assert r.status_code == 200
+    assert r.json()["count"] == 1
+
+
+async def test_put_kinks_rejects_bad_rating(client):
+    pid = await _new_profile(client)
+    r = await client.put(f"/profile/{pid}/kinks", json={"entries": [
+        {"kink": "bondage", "rating": "not_a_rating"},
+    ]})
+    assert r.status_code == 422
