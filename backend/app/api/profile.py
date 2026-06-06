@@ -9,6 +9,8 @@ from app.db.session import get_session
 from app.schemas.onboarding import (
     ArchetypeResultOut,
     ArchetypeSubmission,
+    GoalIn,
+    GoalOut,
     KinkSheetIn,
     ToyIn,
     ToyOut,
@@ -85,3 +87,29 @@ async def list_toys(
     except svc.ProfileNotFound:
         raise _not_found(profile_id)
     return [ToyOut.model_validate(t) for t in toys]
+
+
+@router.post("/{profile_id}/goals", response_model=GoalOut, status_code=status.HTTP_201_CREATED)
+async def add_goal(
+    profile_id: uuid.UUID,
+    body: GoalIn,
+    session: AsyncSession = Depends(get_session),
+) -> GoalOut:
+    try:
+        goal = await svc.add_goal(session, profile_id, body)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    await session.commit()
+    return GoalOut.model_validate(goal)
+
+
+@router.get("/{profile_id}/goals", response_model=list[GoalOut])
+async def list_goals(
+    profile_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> list[GoalOut]:
+    try:
+        goals = await svc.list_goals(session, profile_id)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    return [GoalOut.model_validate(g) for g in goals]

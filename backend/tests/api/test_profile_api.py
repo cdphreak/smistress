@@ -83,3 +83,16 @@ async def test_add_and_list_toys(client):
     toys = r.json()
     assert len(toys) == 1
     assert toys[0]["name"] == "Apex"
+
+
+async def test_add_and_list_goals(client):
+    pid = await _new_profile(client)
+    r = await client.post(f"/profile/{pid}/goals", json={
+        "title": "Daily posture practice", "description": "10 minutes each morning",
+    })
+    assert r.status_code == 201
+    assert r.json()["status"] == "active"
+
+    r = await client.get(f"/profile/{pid}/goals")
+    assert r.status_code == 200
+    assert r.json()[0]["title"] == "Daily posture practice"
