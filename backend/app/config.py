@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://smistress:smistress@localhost:5432/smistress"
     test_database_url: str = "postgresql+psycopg://smistress:smistress@localhost:5432/smistress_test"
     falkordb_url: str = "redis://localhost:6379"
+    graphiti_enabled: bool = False  # off -> NullMemoryStore; no FalkorDB/LLM needed
+    embedding_model: str = "nomic-embed-text"  # local default (Ollama); OpenAI: text-embedding-3-small
+    embedding_dim: int = 768  # nomic-embed-text dim; text-embedding-3-small = 1536
+    falkordb_host: str = "localhost"
+    falkordb_port: int = 6379
 
     @property
     def vision_enabled(self) -> bool:
