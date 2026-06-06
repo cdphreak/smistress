@@ -14,6 +14,8 @@ MERIT_WEIGHT = 0.4  # merit +/-100 -> +/-40 standing points
 MOOD_WEIGHT = 2.0  # mood +/-10 -> +/-20 standing points
 
 # Per-outcome mood contribution (a miss stings most; spec 7).
+# Terminal statuses only; in-progress statuses are intentionally absent and
+# score 0 via dict.get(o, 0) — they do not move short-term mood.
 _OUTCOME_DELTA: dict[TaskStatus, int] = {
     TaskStatus.VERIFIED_PASS: 2,
     TaskStatus.VERIFIED_FAIL: -2,
@@ -54,7 +56,10 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 
 def mood_from_outcomes(outcomes: Iterable[TaskStatus]) -> int:
-    """Short-term mood: net of the last MOOD_WINDOW resolved task outcomes."""
+    """Short-term mood: net of the MOOD_WINDOW most-recent outcomes.
+
+    `outcomes` must be ordered newest-first; the first MOOD_WINDOW items are used.
+    """
     recent = list(outcomes)[:MOOD_WINDOW]
     total = sum(_OUTCOME_DELTA.get(o, 0) for o in recent)
     return int(_clamp(total, MOOD_MIN, MOOD_MAX))
@@ -73,6 +78,10 @@ def _band(standing: int) -> DispositionBand:
 
 
 def _build_reason(merit: int, outcomes: Iterable[TaskStatus]) -> str:
+    """Dominant reason phrase for the disposition line; worst recent signal wins.
+
+    `outcomes` must be ordered newest-first (same contract as mood_from_outcomes).
+    """
     recent = list(outcomes)[:MOOD_WINDOW]
     misses = sum(1 for o in recent if o is TaskStatus.MISSED)
     fails = sum(1 for o in recent if o is TaskStatus.VERIFIED_FAIL)

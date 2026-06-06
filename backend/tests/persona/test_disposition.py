@@ -43,6 +43,20 @@ def test_ceiling_clamps_severity_even_at_rock_bottom():
     assert d.band is DispositionBand.PLEASED  # clamped up, can't go cold
 
 
+def test_neutral_band_at_midrange_standing():
+    # warmth 50, merit 0, no history -> standing 50 -> neutral band.
+    d = compute_disposition(0, [], warmth=50, ceiling=100)
+    assert d.standing == 50
+    assert d.band is DispositionBand.NEUTRAL
+
+
+def test_mood_window_truncates_to_recent_outcomes():
+    # only the first MOOD_WINDOW (5) outcomes count: 10 misses == 5 misses.
+    five = compute_disposition(0, [TaskStatus.MISSED] * 5, warmth=30, ceiling=100)
+    ten = compute_disposition(0, [TaskStatus.MISSED] * 10, warmth=30, ceiling=100)
+    assert ten.standing == five.standing
+
+
 def test_warmth_center_shifts_band():
     # A high-warmth character swings warmer at neutral merit.
     d = compute_disposition(0, [], warmth=80, ceiling=100)
