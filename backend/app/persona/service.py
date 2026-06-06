@@ -11,7 +11,7 @@ from app.db.models.profile import KinkEntry
 from app.db.models.task import Task
 from app.persona.character_block import render_character_block
 from app.persona.compiler import compile_system_prompt
-from app.persona.disposition import Disposition, compute_disposition
+from app.persona.disposition import MOOD_WINDOW, Disposition, compute_disposition
 from app.services import profile as profile_svc
 
 # Task statuses that count as "resolved" history for mood, newest first.
@@ -30,7 +30,7 @@ async def _recent_outcomes(session: AsyncSession, profile_id: uuid.UUID) -> list
         select(Task.status)
         .where(Task.profile_id == profile_id, Task.status.in_(_RESOLVED))
         .order_by(Task.updated_at.desc())
-        .limit(10)
+        .limit(MOOD_WINDOW)  # only the most-recent MOOD_WINDOW shape mood
     )).scalars().all()
     return list(rows)
 
@@ -48,7 +48,9 @@ async def get_disposition(session: AsyncSession, profile_id: uuid.UUID) -> Dispo
 
 
 async def build_authoritative_state_block(session: AsyncSession, profile_id: uuid.UUID) -> str:
-    await profile_svc.get_profile(session, profile_id)
+    await profile_svc.get_profile(session, profile_id)  # 404 guard
+    # TODO(M6): when the loop drives turns in a hot path, pass the already-loaded
+    # character/economy objects into these helpers to avoid re-selecting per turn.
     kinks = (await session.execute(
         select(KinkEntry).where(KinkEntry.profile_id == profile_id)
     )).scalars().all()
