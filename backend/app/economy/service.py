@@ -58,3 +58,29 @@ async def adjust_merit(
     econ.rank = rank_for(econ.merit)
     await session.flush()
     return econ
+
+
+async def grant_tokens(
+    session: AsyncSession, profile_id: uuid.UUID, amount: int
+) -> EconomyState:
+    """Grant earned tokens (amount must be >= 0; caller commits)."""
+    if amount < 0:
+        raise ValueError("grant amount must be non-negative")
+    econ = await get_economy(session, profile_id)
+    econ.tokens += amount
+    await session.flush()
+    return econ
+
+
+async def spend_tokens(
+    session: AsyncSession, profile_id: uuid.UUID, amount: int
+) -> EconomyState:
+    """Spend tokens; never goes negative (raises InsufficientTokens). Caller commits."""
+    if amount < 0:
+        raise ValueError("spend amount must be non-negative")
+    econ = await get_economy(session, profile_id)
+    if econ.tokens < amount:
+        raise InsufficientTokens(f"have {econ.tokens}, need {amount}")
+    econ.tokens -= amount
+    await session.flush()
+    return econ
