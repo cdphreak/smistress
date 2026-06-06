@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.db.enums import KinkRating
 from app.db.models.character import CharacterModel
 from app.db.models.economy import EconomyState
-from app.db.models.profile import KinkEntry
+from app.db.models.profile import ArchetypeResult, KinkEntry
 from app.schemas.onboarding import KinkItem, ProfileCreate
 from app.services import profile as svc
 
@@ -51,3 +51,19 @@ async def test_get_profile_or_404_raises_for_missing(session):
     import uuid
     with pytest.raises(svc.ProfileNotFound):
         await svc.get_profile(session, uuid.uuid4())
+
+
+async def test_archetype_result_persists_raw_answers_and_scores(session):
+    # spec §4 requires storing the raw answers AND the computed scores.
+    profile = await svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    raw = {"q1": 4, "q2": 3}
+    scores = {"submissive": 88}
+    await svc.add_archetype_result(session, profile.id, raw, scores)
+    await session.commit()
+
+    row = (await session.execute(select(ArchetypeResult))).scalar_one()
+    assert row.raw_answers == raw
+    assert row.scores == scores

@@ -60,6 +60,8 @@ async def put_kinks(
     body: KinkSheetIn,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    # v1 intentionally accepts free-text kinks: the kink_catalog is a suggested
+    # vocabulary for the UI, not an allow-list. Custom kinks are permitted.
     try:
         await svc.replace_kinks(session, profile_id, body.entries)
     except svc.ProfileNotFound:
