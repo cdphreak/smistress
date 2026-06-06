@@ -11,6 +11,7 @@ from app.db.models.profile import KinkEntry
 from app.db.models.task import Task
 from app.llm.provider import LLMProvider
 from app.llm.types import ChatMessage, ChatResult
+from app.memory.store import MemoryStore, retrieve_memory
 from app.persona.character_block import render_character_block
 from app.persona.compiler import compile_system_prompt
 from app.persona.disposition import MOOD_WINDOW, Disposition, compute_disposition
@@ -112,8 +113,18 @@ async def generate_reply(
     provider: LLMProvider,
     *,
     memory: str | None = None,
+    store: MemoryStore | None = None,
 ) -> ChatResult:
-    """Compile the persona prompt and get a plain reply (no tools — tool calls are M6)."""
+    """Compile the persona prompt and get a plain reply (no tools — tool calls are M6).
+
+    If a memory store is provided and no explicit memory text was passed, retrieve a
+    memory block keyed on the latest user message (degrading to none on failure).
+    """
+    if memory is None and store is not None:
+        query = next(
+            (m.content for m in reversed(conversation) if m.role == "user"), ""
+        )
+        memory = await retrieve_memory(store, group_id=str(profile_id), query=query)
     system_prompt = await compile_persona_prompt(session, profile_id, memory=memory)
     messages = [ChatMessage(role="system", content=system_prompt), *conversation]
     return await provider.chat(messages)
