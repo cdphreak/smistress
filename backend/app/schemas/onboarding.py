@@ -109,6 +109,15 @@ class CharacterUpdate(BaseModel):
     wit: int | None = _dial()
     signature_flavor: str | None = None
 
+    @field_validator("archetype_blend")
+    @classmethod
+    def _blend_values_in_range(cls, v: dict[str, int] | None) -> dict[str, int] | None:
+        if v is not None:
+            for key, weight in v.items():
+                if not (0 <= weight <= 100):
+                    raise ValueError(f"archetype weight for {key!r} must be 0-100")
+        return v
+
 
 class CharacterOut(BaseModel):
     name: str | None
