@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
+from app.db.session import get_session
 from app.llm.factory import build_provider
 from app.llm.provider import LLMProvider
 from app.llm.types import ChatMessage
@@ -18,6 +21,12 @@ def get_provider() -> LLMProvider:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", "vision_enabled": settings.vision_enabled}
+
+
+@app.get("/db/health")
+async def db_health(session: AsyncSession = Depends(get_session)) -> dict:
+    await session.execute(text("SELECT 1"))
+    return {"database": "ok"}
 
 
 @app.post("/llm/ping")

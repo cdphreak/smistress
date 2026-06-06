@@ -15,3 +15,9 @@ def test_defaults_present():
     s = Settings()
     assert s.chat_model
     assert s.database_url.startswith("postgresql")
+
+
+def test_test_database_url_defaults_to_smistress_test():
+    s = Settings()
+    assert s.test_database_url.endswith("/smistress_test")
+    assert s.test_database_url.startswith("postgresql+psycopg")
