@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.onboarding import router as onboarding_router
+from app.api.persona import router as persona_router
 from app.api.profile import router as profile_router
 from app.config import Settings
 from app.db.session import get_session
@@ -16,6 +17,7 @@ settings = Settings()
 app = FastAPI(title="smistress")
 app.include_router(onboarding_router)
 app.include_router(profile_router)
+app.include_router(persona_router)
 
 
 def get_provider() -> LLMProvider:

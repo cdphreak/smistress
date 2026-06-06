@@ -46,3 +46,13 @@ def test_extra_fields_forbidden():
         ArchetypeSubmission(answers={"q1": 1}, bogus=True)
     with pytest.raises(ValidationError):
         CharacterUpdate(strictness=50, bogus=True)
+
+
+def test_character_update_archetype_blend_bounds():
+    from app.schemas.onboarding import CharacterUpdate
+
+    CharacterUpdate(archetype_blend={"governess": 70, "drill_instructor": 30})  # ok
+    with pytest.raises(ValidationError):
+        CharacterUpdate(archetype_blend={"governess": 250})  # value > 100
+    with pytest.raises(ValidationError):
+        CharacterUpdate(archetype_blend={"governess": -5})  # value < 0

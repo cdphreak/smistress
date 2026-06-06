@@ -426,3 +426,109 @@ Safety is deterministic and works **even if the LLM is down**.
 - AI backend **swappable, OpenAI-compatible**, local-LLM capable.
 - Memory = **Postgres (authoritative) + Graphiti/FalkorDB (temporal, evolving)**.
 - Class/Training system = **sub-project #2** (designed-for now).
+
+---
+
+# Addendum A — Frontend Vision (whole-app)
+
+**Date:** 2026-06-06
+**Status:** Approved design. Applies to **all** frontend work across every milestone — incorporate into every future plan.
+**Scope:** The whole-app frontend north star: visual design language, information architecture, key interaction patterns, and the frontend tech architecture. Detailed screen specs are produced per slice; this addendum is the binding direction they must follow. Brainstorm mockups archived in `.superpowers/brainstorm/` (gitignored).
+
+## A1. Design language — "Severe Editorial"
+
+Stark monochrome with a single sharp accent; severe **but considered** (never crude brutalism — it must not feel cheap in an intimate context). Guiding principle: **the chrome stays cold; her words carry the warmth.** Earned intensity comes through the persona's language, not decoration.
+
+**Tokens (CSS custom properties, source of truth for the design layer):**
+
+| Token | Value | Use |
+|---|---|---|
+| `--ink` | `#0E0E0E` | base background |
+| `--raised` | `#161616` | raised surfaces, her bubbles |
+| `--muted` | `#777` | secondary text, hairlines context |
+| `--paper` | `#FAFAFA` | primary text, inverted surfaces |
+| `--accent` | `#C20E1A` (crimson) | accent **and** danger/stop — deliberately one color |
+
+- **Type:** condensed uppercase grotesque for display/headers; clean neutral grotesque for body (generous line-height, restrained); **monospace for ALL "ledger" data** — merit, ranks, tokens, timers — reinforcing the exacting feel.
+- **Form:** sharp corners, hairline rules, generous negative space, uppercase letter-spaced labels. Motion minimal and crisp (cuts over bounces).
+- **Crimson does double duty** (her accent = the stop color), so the safeword control is always the most visually charged element on screen.
+
+## A2. Information architecture — three zones
+
+1. **Onboarding wizard** (first run only, linear) — see A4.
+2. **Core app** — **chat is home**, with an expanding **dossier** header and four spokes.
+3. **Safety layer** — always on top of everything (A6).
+
+**Navigation model: chat + expanding dossier.** Chat is the whole home surface. A persistent dossier bar (rank · merit · active task) pins her live status on top and **expands in place** into status + the four spokes. The spokes are real, deep-linkable routes (`/today`, `/standing`, `/profile`, `/character`) rendered as in-place takeovers. Settings holds preferences + delete-everything. **LLM provider configuration is an admin/config-file concern — it is NOT a user-facing screen.**
+
+**Screen map** (`[now]` = backend exists today; `[later]` = future milestone):
+- **Onboarding** `[now]`: 18+ gate & consent → archetype questionnaire → kink/limits sheet → toy inventory → SO context → goals → character model → **preferences (its own step)** → reveal/first chat.
+- **Core** `[later]`: chat home, dossier header, proof capture, settings (`[partial now]`).
+- **Spokes:** Today/Task `[later]`, Standing/Economy `[later]`, Sub Profile `[now]`, Character Model `[now]`.
+- **Safety** `[now]`: safeword/panic, aftercare, well-being controls, crisis resources.
+
+## A3. Discretion posture (v1)
+
+**Minimal.** Rely on device-level security; no in-app lock, no disguised identity in v1. Keep the shell simple. (App-lock / neutral identity remain an easy later hardening, alongside the deferred encryption-at-rest.)
+
+## A4. Onboarding — pure structured wizard
+
+A clean, clinical, **structured wizard** (not a chat interview): one concern per screen, a thin numbered progress rail, **save-and-resume** (each step POSTs to its matching per-step backend endpoint as you go), back/next footer. The mistress does **not** appear during intake — her **first appearance is a "reveal"** once the profile is assembled, which suits the severe, earned tone.
+
+**The two hard screens:**
+- **Archetype questionnaire:** one statement per card with a drag scale; calm and unrushed across the full statement set.
+- **Kink / limits sheet:** a single scrollable grid **grouped by category**, with a **6-way segmented control** per row (Favorite / Like / Curious / Soft-limit / Hard-limit / N-A). **Hard-limits render in crimson, soft-limits in muted-crimson** so this safety-critical data reads at a glance. A legend + search/category-jump keeps the long list manageable.
+
+## A5. Chat surface & dossier
+
+- **Tool actions render as structured cards inline in the stream.** When the mistress acts through a tool (assign task, set denial timer, grant/revoke token, etc.), it appears as a card in the conversation — chat and authoritative state can never silently disagree.
+- **Disposition line:** a subtle monospace line under the dossier surfaces her current mood **+ reason** (e.g., "cold · exacting — two recent misses"), making earned intensity legible.
+- **Dossier expands in place** into rank, merit-to-next-rank bar, tokens, denial timer, active task, and the four spokes.
+- **Bubbles:** her messages = `--raised` with a crimson left hairline (left-aligned); the sub's = filled gray (right-aligned).
+- **Safeword pinned to the input bar at all times.**
+
+## A6. Safety layer (UI)
+
+Deterministic; never routed through the persona; works even if the LLM is down.
+
+- **Two exits.**
+  - **SAFE button — considered exit:** one tap → **a single confirmation** ("Stop everything?"). The confirmation deliberately carries the weight of *questioning the mistress*. **Critically, the scene pre-halts the instant the sheet opens** — timers and denial pressure lift silently *before* you confirm — so you are never under pressure while deciding; confirming only finalizes the full stop.
+  - **Typed safeword phrase — emergency exit:** the recognized phrase, intercepted **before the LLM**, stops **instantly with no confirmation**. The frictionless path for genuine panic.
+- Both land on the same **calm, out-of-persona** stop screen: a status receipt (scene halted, timers paused, denial lifted, **no merit penalty**) in a plain caring voice — the one place the severe styling intentionally softens — with aftercare, "just sit a while," resume-when-ready, and one-tap crisis **resources**.
+- **Well-being controls** grouped together: pause/hiatus (no penalty), lower-a-limit (honored immediately), consent check-in cadence, the intensity ceiling, and one-tap **delete-everything**.
+
+## A7. Frontend tech architecture
+
+**Stack:** SvelteKit 2 + **Svelte 5 (runes)**, TypeScript, Vite, `@vite-pwa/sveltekit`. Switch `adapter-auto` → **`adapter-node`** to run as a server on the single VPS via docker-compose alongside FastAPI.
+
+**Topology — SvelteKit as a thin BFF:** the browser talks only to SvelteKit; SvelteKit server routes proxy to the FastAPI backend, keeping the session cookie and API base URL server-side.
+
+**Layered `src/lib/`:**
+- `api/` — one typed module per backend resource over a single `client.ts` (base URL, error normalization, retry).
+- `types/` — **generated from FastAPI's `openapi.json`** via `openapi-typescript` (`npm run gen:api`); backend Pydantic schemas are the source of truth, so types never drift.
+- `stores/` (runes) — `session`, `onboardingDraft` (save-and-resume), `chat`, `dossier` (economy/disposition), and a global **`safety`** store.
+- `design/` — Severe Editorial tokens (A1) as CSS custom properties + primitive components (`Button`, `Chip`, `Bubble`, `DossierBar`, `SegmentedControl`, `ProgressRail`).
+
+**Routes:** `/onboarding/[step]` (guarded: redirect here until a profile exists); `/` chat home (guarded: needs a profile); `/today` `/standing` `/profile` `/character` `/settings` as deep-linkable spokes rendered as takeovers. **Safety is a global overlay** mounted in the root `+layout` (not a route), plus controls under `/settings`.
+
+**Safety client module:** the pre-halt is pure client state (stop timers, set `paused`) fired *before* any network call; the typed-phrase interceptor sits on the chat input and short-circuits before send.
+
+**PWA:** `adapter-node` + vite-pwa for installability and an offline app shell; neutral-ish manifest. Camera/timer permissions deferred to the proof milestone.
+
+**Testing:** Vitest unit + `@testing-library/svelte` components; **Playwright** E2E (onboarding→profile now, extended to first-task later).
+
+**Build order, honest to the backend:**
+- **Phase A — `[now]`:** app shell + design system + onboarding wizard + Sub Profile / Character Model view-edit screens + safety *shell* (client-deterministic controls).
+- **Phase B — `[later]`:** chat surface, live dossier data, tasks/proof capture, economy — as those backends land.
+
+## Addendum Decision Log
+
+- Aesthetic = **Severe Editorial** (monochrome + crimson accent, mono data, considered not crude).
+- Navigation = **chat home + expanding dossier**; spokes are deep-linkable takeovers; safeword always pinned.
+- Onboarding = **pure structured wizard** with save-and-resume; mistress is a post-intake **reveal**.
+- Discretion = **minimal in v1** (device security only).
+- Preferences = **its own onboarding step**; **provider config = admin/config-file, not UI**.
+- Chat = **inline tool-cards** + **disposition line**; dossier expands in place.
+- Kink sheet = grouped grid, **6-way segmented control**, **crimson/muted-crimson** for hard/soft limits.
+- Safeword = **one confirmation with a pre-halt** (the considered exit, weight of questioning her) **+ instant typed-phrase** (emergency exit); calm out-of-persona stop screen.
+- Tech = **SvelteKit (Svelte 5 runes) + adapter-node**, **BFF proxying FastAPI**, **OpenAPI-generated types**, safety as a global client overlay, phased A/B build order.

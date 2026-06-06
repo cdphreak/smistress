@@ -13,3 +13,5 @@ node_modules/
 .svelte-kit/
 frontend/build/
 dist/
+
+.superpowers/
