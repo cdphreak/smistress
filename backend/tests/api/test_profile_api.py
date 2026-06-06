@@ -128,3 +128,31 @@ async def test_get_and_update_character(client):
     # out-of-range dial rejected
     r = await client.put(f"/profile/{pid}/character", json={"wit": 250})
     assert r.status_code == 422
+
+
+async def test_get_full_profile_assembles_everything(client):
+    pid = await _new_profile(client)
+    await client.post(f"/profile/{pid}/archetype", json={"answers": {"q1": 4, "q2": 4}})
+    await client.put(f"/profile/{pid}/kinks", json={"entries": [
+        {"kink": "bondage", "rating": "favorite"},
+    ]})
+    await client.post(f"/profile/{pid}/toys", json={"name": "Apex", "type": "vibrator"})
+    await client.post(f"/profile/{pid}/goals", json={"title": "Practice"})
+    await client.put(f"/profile/{pid}/so-context", json={"description": "For my partner"})
+
+    r = await client.get(f"/profile/{pid}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["id"] == pid
+    assert body["archetype_scores"]["submissive"] == 100
+    assert body["kinks"][0]["kink"] == "bondage"
+    assert body["toys"][0]["name"] == "Apex"
+    assert body["goals"][0]["title"] == "Practice"
+    assert body["so_context"]["description"] == "For my partner"
+    assert body["character"]["honorific"] == "Headmistress"
+
+
+async def test_get_full_profile_404(client):
+    import uuid
+    r = await client.get(f"/profile/{uuid.uuid4()}")
+    assert r.status_code == 404

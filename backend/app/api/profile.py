@@ -13,7 +13,9 @@ from app.schemas.onboarding import (
     CharacterUpdate,
     GoalIn,
     GoalOut,
+    KinkOut,
     KinkSheetIn,
+    ProfileRead,
     SoContextIn,
     ToyIn,
     ToyOut,
@@ -156,3 +158,32 @@ async def update_character(
         raise _not_found(profile_id)
     await session.commit()
     return CharacterOut.model_validate(char)
+
+
+@router.get("/{profile_id}", response_model=ProfileRead)
+async def get_full_profile(
+    profile_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> ProfileRead:
+    try:
+        profile = await svc.get_profile_full(session, profile_id)
+        char = await svc.get_character(session, profile_id)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    scores = await svc.latest_archetype_scores(session, profile_id)
+    so = profile.so_context
+    return ProfileRead(
+        id=profile.id,
+        intensity_ceiling=profile.intensity_ceiling,
+        aftercare_prefs=profile.aftercare_prefs,
+        archetype_scores=scores,
+        kinks=[KinkOut.model_validate(k) for k in profile.kinks],
+        toys=[ToyOut.model_validate(t) for t in profile.toys],
+        goals=[GoalOut.model_validate(g) for g in profile.goals],
+        so_context=(
+            SoContextIn(description=so.description, values=so.values, dynamic=so.dynamic)
+            if so
+            else None
+        ),
+        character=CharacterOut.model_validate(char),
+    )

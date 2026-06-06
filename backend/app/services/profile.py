@@ -4,6 +4,7 @@ import uuid
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models.character import CharacterModel
 from app.db.models.economy import EconomyState
@@ -158,3 +159,20 @@ async def update_character(
         setattr(char, field, value)
     await session.flush()
     return char
+
+
+async def get_profile_full(session: AsyncSession, profile_id: uuid.UUID) -> SubProfile:
+    """Profile with child collections eagerly loaded (async-safe, no lazy IO)."""
+    profile = (await session.execute(
+        select(SubProfile)
+        .where(SubProfile.id == profile_id)
+        .options(
+            selectinload(SubProfile.kinks),
+            selectinload(SubProfile.toys),
+            selectinload(SubProfile.goals),
+            selectinload(SubProfile.so_context),
+        )
+    )).scalar_one_or_none()
+    if profile is None:
+        raise ProfileNotFound(str(profile_id))
+    return profile
