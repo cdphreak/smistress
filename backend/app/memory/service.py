@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.memory import MemoryEpisode
 from app.memory.store import MemoryStore
+from app.persona import service as persona_svc
 
 
 async def enqueue_episode(
@@ -68,3 +69,22 @@ async def drain_outbox(
         pushed += 1
     await session.flush()
     return pushed
+
+
+async def seed_profile_episode(
+    session: AsyncSession, profile_id: uuid.UUID
+) -> MemoryEpisode:
+    """Seed the initial Graphiti episode from the assembled profile (spec 4).
+
+    Raises profile_svc.ProfileNotFound if the profile does not exist.
+    """
+    summary = await persona_svc.build_authoritative_state_block(session, profile_id)
+    return await enqueue_episode(
+        session,
+        profile_id,
+        name="onboarding profile",
+        body=f"Initial sub profile at onboarding:\n{summary}",
+        source="text",
+        source_description="onboarding",
+        reference_time=datetime.now(timezone.utc),
+    )
