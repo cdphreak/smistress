@@ -7,6 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.db.enums import GoalStatus, KinkRating
 
 
+def _dial() -> int | None:
+    """0-100 voice dial, optional for partial updates."""
+    return Field(default=None, ge=0, le=100)  # type: ignore[return-value]
+
+
 # ---- create / read profile ------------------------------------------------
 class ProfileCreate(BaseModel):
     is_adult: bool
@@ -95,13 +100,13 @@ class CharacterUpdate(BaseModel):
     address_term: str | None = None
     pronouns: str | None = None
     archetype_blend: dict[str, int] | None = None
-    warmth: int | None = Field(default=None, ge=0, le=100)
-    strictness: int | None = Field(default=None, ge=0, le=100)
-    sadism: int | None = Field(default=None, ge=0, le=100)
-    formality: int | None = Field(default=None, ge=0, le=100)
-    verbosity: int | None = Field(default=None, ge=0, le=100)
-    crudeness: int | None = Field(default=None, ge=0, le=100)
-    wit: int | None = Field(default=None, ge=0, le=100)
+    warmth: int | None = _dial()
+    strictness: int | None = _dial()
+    sadism: int | None = _dial()
+    formality: int | None = _dial()
+    verbosity: int | None = _dial()
+    crudeness: int | None = _dial()
+    wit: int | None = _dial()
     signature_flavor: str | None = None
 
 
@@ -110,7 +115,7 @@ class CharacterOut(BaseModel):
     honorific: str
     address_term: str
     pronouns: str
-    archetype_blend: dict
+    archetype_blend: dict[str, int]
     warmth: int
     strictness: int
     sadism: int

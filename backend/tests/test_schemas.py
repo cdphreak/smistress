@@ -22,6 +22,8 @@ def test_archetype_submission_rejects_out_of_range_answer():
     ArchetypeSubmission(answers={"q1": 4})  # ok
     with pytest.raises(ValidationError):
         ArchetypeSubmission(answers={"q1": 5})
+    with pytest.raises(ValidationError):
+        ArchetypeSubmission(answers={"q1": -1})
 
 
 def test_kink_item_uses_enum():
@@ -37,3 +39,10 @@ def test_character_update_dials_bounded_and_optional():
     assert c.warmth is None  # unset fields stay None (partial update)
     with pytest.raises(ValidationError):
         CharacterUpdate(sadism=200)
+
+
+def test_extra_fields_forbidden():
+    with pytest.raises(ValidationError):
+        ArchetypeSubmission(answers={"q1": 1}, bogus=True)
+    with pytest.raises(ValidationError):
+        CharacterUpdate(strictness=50, bogus=True)
