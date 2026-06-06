@@ -9,9 +9,12 @@ from app.db.session import get_session
 from app.schemas.onboarding import (
     ArchetypeResultOut,
     ArchetypeSubmission,
+    CharacterOut,
+    CharacterUpdate,
     GoalIn,
     GoalOut,
     KinkSheetIn,
+    SoContextIn,
     ToyIn,
     ToyOut,
 )
@@ -113,3 +116,43 @@ async def list_goals(
     except svc.ProfileNotFound:
         raise _not_found(profile_id)
     return [GoalOut.model_validate(g) for g in goals]
+
+
+@router.put("/{profile_id}/so-context", response_model=SoContextIn)
+async def put_so_context(
+    profile_id: uuid.UUID,
+    body: SoContextIn,
+    session: AsyncSession = Depends(get_session),
+) -> SoContextIn:
+    try:
+        so = await svc.upsert_so_context(session, profile_id, body)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    await session.commit()
+    return SoContextIn(description=so.description, values=so.values, dynamic=so.dynamic)
+
+
+@router.get("/{profile_id}/character", response_model=CharacterOut)
+async def get_character(
+    profile_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> CharacterOut:
+    try:
+        char = await svc.get_character(session, profile_id)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    return CharacterOut.model_validate(char)
+
+
+@router.put("/{profile_id}/character", response_model=CharacterOut)
+async def update_character(
+    profile_id: uuid.UUID,
+    body: CharacterUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> CharacterOut:
+    try:
+        char = await svc.update_character(session, profile_id, body)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    await session.commit()
+    return CharacterOut.model_validate(char)

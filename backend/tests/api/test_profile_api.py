@@ -96,3 +96,35 @@ async def test_add_and_list_goals(client):
     r = await client.get(f"/profile/{pid}/goals")
     assert r.status_code == 200
     assert r.json()[0]["title"] == "Daily posture practice"
+
+
+async def test_upsert_so_context(client):
+    pid = await _new_profile(client)
+    r = await client.put(f"/profile/{pid}/so-context", json={
+        "description": "Training for my partner", "dynamic": "24/7-lite",
+    })
+    assert r.status_code == 200
+    # upsert again updates in place
+    r = await client.put(f"/profile/{pid}/so-context", json={"description": "Updated"})
+    assert r.status_code == 200
+    assert r.json()["description"] == "Updated"
+
+
+async def test_get_and_update_character(client):
+    pid = await _new_profile(client)
+    r = await client.get(f"/profile/{pid}/character")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["honorific"] == "Headmistress"
+    assert body["strictness"] == 80
+    assert body["archetype_blend"] == {"governess": 70, "drill_instructor": 30}
+
+    r = await client.put(f"/profile/{pid}/character", json={"sadism": 65, "name": "Vesper"})
+    assert r.status_code == 200
+    assert r.json()["sadism"] == 65
+    assert r.json()["name"] == "Vesper"
+    assert r.json()["strictness"] == 80  # untouched dial unchanged
+
+    # out-of-range dial rejected
+    r = await client.put(f"/profile/{pid}/character", json={"wit": 250})
+    assert r.status_code == 422
