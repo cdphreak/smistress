@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.economy import EconomyState
+from app.db.models.economy import DenialTimer, EconomyState
 
 # Merit bounds — identical to app.persona.disposition (the disposition reads this merit).
 MERIT_MIN, MERIT_MAX = -100, 100
@@ -84,3 +85,31 @@ async def spend_tokens(
     econ.tokens -= amount
     await session.flush()
     return econ
+
+
+async def set_denial_timer(
+    session: AsyncSession, profile_id: uuid.UUID, *, reason: str, ends_at: datetime
+) -> DenialTimer:
+    timer = DenialTimer(profile_id=profile_id, reason=reason, ends_at=ends_at, active=True)
+    session.add(timer)
+    await session.flush()
+    return timer
+
+
+async def active_denial_timers(
+    session: AsyncSession, profile_id: uuid.UUID
+) -> list[DenialTimer]:
+    rows = (await session.execute(
+        select(DenialTimer)
+        .where(DenialTimer.profile_id == profile_id, DenialTimer.active.is_(True))
+        .order_by(DenialTimer.created_at)
+    )).scalars().all()
+    return list(rows)
+
+
+async def clear_denial_timers(session: AsyncSession, profile_id: uuid.UUID) -> int:
+    timers = await active_denial_timers(session, profile_id)
+    for timer in timers:
+        timer.active = False
+    await session.flush()
+    return len(timers)
