@@ -67,6 +67,39 @@ async def assign_task(
     return task
 
 
+# Statuses that can still lapse into "missed" (no proof submitted yet).
+_LAPSABLE = (TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS)
+
+
+async def sweep_missed(session: AsyncSession, profile_id: uuid.UUID | None = None) -> int:
+    """Mark overdue, un-submitted tasks as missed (deadline passed with no proof; spec 6).
+
+    Tasks already in proof_submitted/verifying are awaiting verification, not missed.
+    """
+    now = datetime.now(timezone.utc)
+    stmt = select(Task).where(
+        Task.deadline.is_not(None),
+        Task.deadline < now,
+        Task.status.in_(_LAPSABLE),
+    )
+    if profile_id is not None:
+        stmt = stmt.where(Task.profile_id == profile_id)
+    overdue = (await session.execute(stmt)).scalars().all()
+    for task in overdue:
+        task.status = TaskStatus.MISSED
+        await mem_svc.enqueue_episode(
+            session,
+            task.profile_id,
+            name="task missed",
+            body=f"Task '{task.description}' was missed (deadline passed with no proof).",
+            source="text",
+            source_description="task",
+            reference_time=now,
+        )
+    await session.flush()
+    return len(overdue)
+
+
 async def start_task(session: AsyncSession, task_id: uuid.UUID) -> Task:
     task = await _get_task(session, task_id)
     task.status = TaskStatus.IN_PROGRESS
