@@ -10,6 +10,7 @@ from app.config import Settings
 from app.db.enums import ProofRequirement, TaskStatus
 from app.db.models.loop import Proof, TaskTimer
 from app.db.models.task import Task
+from app.economy import service as econ_svc
 from app.llm.provider import LLMProvider
 from app.loop import verification
 from app.memory import service as mem_svc
@@ -17,6 +18,10 @@ from app.services import profile as profile_svc
 
 
 class TaskNotFound(Exception):
+    pass
+
+
+class TaskNotVerifiable(Exception):
     pass
 
 
@@ -70,6 +75,9 @@ async def assign_task(
 # Statuses that can still lapse into "missed" (no proof submitted yet).
 _LAPSABLE = (TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS)
 
+# Terminal statuses — re-verifying these is rejected (idempotency guard).
+_TERMINAL = (TaskStatus.VERIFIED_PASS, TaskStatus.VERIFIED_FAIL, TaskStatus.MISSED)
+
 
 async def sweep_missed(session: AsyncSession, profile_id: uuid.UUID | None = None) -> int:
     """Mark overdue, un-submitted tasks as missed (deadline passed with no proof; spec 6).
@@ -87,6 +95,8 @@ async def sweep_missed(session: AsyncSession, profile_id: uuid.UUID | None = Non
     overdue = (await session.execute(stmt)).scalars().all()
     for task in overdue:
         task.status = TaskStatus.MISSED
+        await session.flush()  # ensure status is set before applying the outcome
+        await econ_svc.apply_task_outcome(session, task)
         await mem_svc.enqueue_episode(
             session,
             task.profile_id,
@@ -134,6 +144,8 @@ async def verify_task(
     session: AsyncSession, task_id: uuid.UUID, provider: LLMProvider, settings: Settings
 ) -> Task:
     task = await _get_task(session, task_id)
+    if task.status in _TERMINAL:
+        raise TaskNotVerifiable(f"task {task_id} is already {task.status.value}")
     task.status = TaskStatus.VERIFYING
 
     proof = (await session.execute(
@@ -164,7 +176,8 @@ async def verify_task(
     else:
         task.status = TaskStatus.PROOF_SUBMITTED  # re_proof/pending -> awaiting another attempt
 
-    # TODO(M7): apply the task's merit stakes (reward/fail penalty) via the economy service.
+    if task.status in (TaskStatus.VERIFIED_PASS, TaskStatus.VERIFIED_FAIL):
+        await econ_svc.apply_task_outcome(session, task)
     await mem_svc.enqueue_episode(
         session,
         task.profile_id,

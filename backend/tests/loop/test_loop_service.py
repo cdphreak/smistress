@@ -8,6 +8,7 @@ from app.config import Settings
 from app.db.enums import ProofRequirement, TaskStatus
 from app.db.models.loop import Proof, TaskTimer
 from app.db.models.memory import MemoryEpisode
+from app.economy import service as econ_svc
 from app.llm.mock import MockLLMProvider
 from app.llm.types import ChatResult
 from app.loop import service as loop_svc
@@ -141,3 +142,45 @@ async def test_verify_timer_task_passes_on_sufficient_elapsed(session):
     verified = await loop_svc.verify_task(session, task.id, MockLLMProvider(), Settings())
     await session.commit()
     assert verified.status is TaskStatus.VERIFIED_PASS
+
+
+async def test_verify_pass_applies_merit_reward(session):
+    p = await _profile(session)
+    task = await loop_svc.assign_task(
+        session, p.id, description="tidy", proof_requirement=ProofRequirement.HONOR,
+        merit_reward=10,
+    )
+    await session.commit()
+    await loop_svc.submit_proof(session, task.id, report="cleaned thoroughly")
+    await session.commit()
+    provider = MockLLMProvider(scripted=[ChatResult(
+        content='{"verdict": "pass", "confidence": 90, "reasoning": "ok", "issues": []}'
+    )])
+    await loop_svc.verify_task(session, task.id, provider, Settings())
+    await session.commit()
+
+    econ = await econ_svc.get_economy(session, p.id)
+    assert econ.merit == 10  # reward applied
+
+
+async def test_reverify_terminal_task_does_not_double_apply(session):
+    p = await _profile(session)
+    task = await loop_svc.assign_task(
+        session, p.id, description="tidy", proof_requirement=ProofRequirement.HONOR,
+        merit_reward=10,
+    )
+    await session.commit()
+    await loop_svc.submit_proof(session, task.id, report="done well")
+    await session.commit()
+    provider = MockLLMProvider(scripted=[
+        ChatResult(content='{"verdict": "pass", "confidence": 90, "reasoning": "ok", "issues": []}'),
+        ChatResult(content='{"verdict": "pass", "confidence": 90, "reasoning": "ok", "issues": []}'),
+    ])
+    await loop_svc.verify_task(session, task.id, provider, Settings())
+    await session.commit()
+    with pytest.raises(loop_svc.TaskNotVerifiable):
+        await loop_svc.verify_task(session, task.id, provider, Settings())
+    await session.commit()
+
+    econ = await econ_svc.get_economy(session, p.id)
+    assert econ.merit == 10  # not 20
