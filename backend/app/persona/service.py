@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.enums import KinkRating, TaskStatus
+from app.db.models.economy import DenialTimer, EconomyState
+from app.db.models.profile import KinkEntry
+from app.db.models.task import Task
+from app.persona.character_block import render_character_block
+from app.persona.compiler import compile_system_prompt
+from app.persona.disposition import Disposition, compute_disposition
+from app.services import profile as profile_svc
+
+# Task statuses that count as "resolved" history for mood, newest first.
+_RESOLVED = (TaskStatus.VERIFIED_PASS, TaskStatus.VERIFIED_FAIL, TaskStatus.MISSED)
+# Non-terminal statuses -> the current active task.
+_ACTIVE = (
+    TaskStatus.ASSIGNED,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.PROOF_SUBMITTED,
+    TaskStatus.VERIFYING,
+)
+
+
+async def _recent_outcomes(session: AsyncSession, profile_id: uuid.UUID) -> list[TaskStatus]:
+    rows = (await session.execute(
+        select(Task.status)
+        .where(Task.profile_id == profile_id, Task.status.in_(_RESOLVED))
+        .order_by(Task.updated_at.desc())
+        .limit(10)
+    )).scalars().all()
+    return list(rows)
+
+
+async def get_disposition(session: AsyncSession, profile_id: uuid.UUID) -> Disposition:
+    char = await profile_svc.get_character(session, profile_id)  # raises ProfileNotFound
+    profile = await profile_svc.get_profile(session, profile_id)
+    econ = (await session.execute(
+        select(EconomyState).where(EconomyState.profile_id == profile_id)
+    )).scalar_one()
+    outcomes = await _recent_outcomes(session, profile_id)
+    return compute_disposition(
+        econ.merit, outcomes, warmth=char.warmth, ceiling=profile.intensity_ceiling
+    )
+
+
+async def build_authoritative_state_block(session: AsyncSession, profile_id: uuid.UUID) -> str:
+    await profile_svc.get_profile(session, profile_id)
+    kinks = (await session.execute(
+        select(KinkEntry).where(KinkEntry.profile_id == profile_id)
+    )).scalars().all()
+    hard = [k.kink for k in kinks if k.rating is KinkRating.HARD_LIMIT]
+    soft = [k.kink for k in kinks if k.rating is KinkRating.SOFT_LIMIT]
+
+    econ = (await session.execute(
+        select(EconomyState).where(EconomyState.profile_id == profile_id)
+    )).scalar_one()
+    active_denials = (await session.execute(
+        select(DenialTimer).where(
+            DenialTimer.profile_id == profile_id, DenialTimer.active.is_(True)
+        )
+    )).scalars().all()
+    active_task = (await session.execute(
+        select(Task)
+        .where(Task.profile_id == profile_id, Task.status.in_(_ACTIVE))
+        .order_by(Task.created_at.desc())
+        .limit(1)
+    )).scalars().first()
+
+    lines = [
+        f"HARD LIMITS (never cross): {', '.join(hard) if hard else 'none recorded'}",
+        f"SOFT LIMITS (approach with care): {', '.join(soft) if soft else 'none recorded'}",
+        f"MERIT: {econ.merit} | RANK: {econ.rank} | TOKENS: {econ.tokens}",
+        f"ACTIVE DENIAL TIMERS: {len(active_denials)}",
+    ]
+    if active_task is not None:
+        lines.append(
+            f"ACTIVE TASK: {active_task.description} "
+            f"(proof: {active_task.proof_requirement.value}, status: {active_task.status.value})"
+        )
+    else:
+        lines.append("ACTIVE TASK: none")
+    return "\n".join(lines)
+
+
+async def compile_persona_prompt(
+    session: AsyncSession, profile_id: uuid.UUID, *, memory: str | None = None
+) -> str:
+    char = await profile_svc.get_character(session, profile_id)  # raises ProfileNotFound
+    character_block = render_character_block(char)
+    state_block = await build_authoritative_state_block(session, profile_id)
+    disposition = await get_disposition(session, profile_id)
+    return compile_system_prompt(
+        character_block=character_block,
+        authoritative_state=state_block,
+        disposition=disposition,
+        memory=memory,
+    )
