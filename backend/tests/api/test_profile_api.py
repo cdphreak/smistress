@@ -156,3 +156,20 @@ async def test_get_full_profile_404(client):
     import uuid
     r = await client.get(f"/profile/{uuid.uuid4()}")
     assert r.status_code == 404
+
+
+async def test_update_preferences(client):
+    pid = await _new_profile(client)
+    r = await client.put(f"/profile/{pid}/preferences", json={
+        "intensity_ceiling": 70, "aftercare_prefs": "tea and quiet",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["intensity_ceiling"] == 70
+    assert body["aftercare_prefs"] == "tea and quiet"
+
+
+async def test_update_preferences_404(client):
+    import uuid
+    r = await client.put(f"/profile/{uuid.uuid4()}/preferences", json={"intensity_ceiling": 50})
+    assert r.status_code == 404

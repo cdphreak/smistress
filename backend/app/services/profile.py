@@ -20,6 +20,7 @@ from app.schemas.onboarding import (
     CharacterUpdate,
     GoalIn,
     KinkItem,
+    PreferencesIn,
     ProfileCreate,
     SoContextIn,
     ToyIn,
@@ -48,6 +49,16 @@ async def get_profile(session: AsyncSession, profile_id: uuid.UUID) -> SubProfil
     profile = await session.get(SubProfile, profile_id)
     if profile is None:
         raise ProfileNotFound(str(profile_id))
+    return profile
+
+
+async def update_preferences(
+    session: AsyncSession, profile_id: uuid.UUID, data: PreferencesIn
+) -> SubProfile:
+    profile = await get_profile(session, profile_id)  # raises ProfileNotFound
+    profile.intensity_ceiling = data.intensity_ceiling
+    profile.aftercare_prefs = data.aftercare_prefs
+    await session.flush()
     return profile
 
 

@@ -15,6 +15,8 @@ from app.schemas.onboarding import (
     GoalOut,
     KinkOut,
     KinkSheetIn,
+    PreferencesIn,
+    PreferencesOut,
     ProfileRead,
     SoContextIn,
     ToyIn,
@@ -160,6 +162,20 @@ async def update_character(
         raise _not_found(profile_id)
     await session.commit()
     return CharacterOut.model_validate(char)
+
+
+@router.put("/{profile_id}/preferences", response_model=PreferencesOut)
+async def update_preferences(
+    profile_id: uuid.UUID,
+    body: PreferencesIn,
+    session: AsyncSession = Depends(get_session),
+) -> PreferencesOut:
+    try:
+        profile = await svc.update_preferences(session, profile_id, body)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    await session.commit()
+    return PreferencesOut.model_validate(profile)
 
 
 @router.get("/{profile_id}", response_model=ProfileRead)
