@@ -20,6 +20,8 @@ def test_rank_ladder_bands():
     assert econ_svc.rank_for(20) == "disciplined"
     assert econ_svc.rank_for(50) == "adept"
     assert econ_svc.rank_for(80) == "paragon"
+    assert econ_svc.rank_for(-20) == "novice"     # lower edge of novice
+    assert econ_svc.rank_for(-21) == "remedial"   # just below -> remedial
     assert econ_svc.rank_for(-50) == "remedial"
 
 
