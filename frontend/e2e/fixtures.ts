@@ -37,6 +37,17 @@ export async function mockApi(page: Page) {
     if (path.endsWith('/resume') && method === 'POST') return json(SAFE_OK);
     if (path.endsWith('/safety') && method === 'GET') return json(SAFE_OK);
     if (path.endsWith('/hiatus') && method === 'POST') return json({ ...SAFE_OK, on_hiatus: true });
+    if (path.endsWith('/messages') && method === 'GET') return json([]);
+    if (path.endsWith('/chat') && method === 'POST') {
+      const body = req.postDataJSON() as { content: string };
+      return json({ id: 'm2', role: 'assistant', content: `Heard: ${body.content}`, created_at: 'now' });
+    }
+    if (path.endsWith('/dossier') && method === 'GET')
+      return json({
+        rank: 'novice', merit: 0, tokens: 0,
+        disposition: { band: 'cool', line: 'cool · exacting — no recent activity', reason: 'x', standing: 30 },
+        active_task: null, denial_timers: 0
+      });
     // assembled profile GET (path ends with the bare profile id)
     if (/\/api\/profile\/[^/]+$/.test(path) && method === 'GET') return json(PROFILE);
     return json({}, 200);
