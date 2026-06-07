@@ -847,6 +847,10 @@ export interface components {
             role: string;
             /** Content */
             content: string;
+            /** Action */
+            action?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Created At
              * Format: date-time
