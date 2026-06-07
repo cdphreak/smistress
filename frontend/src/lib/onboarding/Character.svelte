@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import TextField from '$lib/design/components/TextField.svelte';
   import Scale from '$lib/design/components/Scale.svelte';
 
@@ -13,30 +14,22 @@
     crudeness: number;
     wit: number;
   };
-  let { onnext }: { onnext: (patch: Patch) => void } = $props();
+  let { onnext, initial = {} }: { onnext: (patch: Patch) => void; initial?: Partial<Patch> } =
+    $props();
 
-  // Seeded with the persona defaults (Governess-leaning, strict, witty).
-  let honorific = $state('Mistress');
-  let address_term = $state('pet');
   const DIALS = [
-    'warmth',
-    'strictness',
-    'sadism',
-    'formality',
-    'verbosity',
-    'crudeness',
-    'wit'
+    'warmth', 'strictness', 'sadism', 'formality', 'verbosity', 'crudeness', 'wit'
   ] as const;
   type Dial = (typeof DIALS)[number];
-  let dials = $state<Record<Dial, number>>({
-    warmth: 40,
-    strictness: 80,
-    sadism: 30,
-    formality: 70,
-    verbosity: 50,
-    crudeness: 30,
-    wit: 75
-  });
+  const DEFAULTS: Record<Dial, number> = {
+    warmth: 40, strictness: 80, sadism: 30, formality: 70, verbosity: 50, crudeness: 30, wit: 75
+  };
+
+  let honorific = $state(untrack(() => initial.honorific ?? 'Mistress'));
+  let address_term = $state(untrack(() => initial.address_term ?? 'pet'));
+  let dials = $state<Record<Dial, number>>(
+    untrack(() => Object.fromEntries(DIALS.map((d) => [d, initial[d] ?? DEFAULTS[d]])) as Record<Dial, number>)
+  );
 </script>
 
 <h2 class="display">Shape her</h2>
