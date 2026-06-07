@@ -33,6 +33,18 @@ def test_memory_section_renders_when_provided():
     assert "strong Monday performance" in prompt
 
 
+def test_prompt_enforces_concise_in_character_voice():
+    disp = compute_disposition(0, [], warmth=30, ceiling=100)
+    prompt = compile_system_prompt(
+        character_block="x", authoritative_state="y", disposition=disp, memory=None
+    )
+    low = prompt.lower()
+    assert "how you speak" in low
+    assert "first person" in low  # no third-person self-reference
+    assert "narration" in low or "stage direction" in low  # no roleplay prose
+    assert "90 words" in low or "short" in low  # brevity
+
+
 def test_prompt_describes_the_action_tools():
     disp = compute_disposition(0, [], warmth=30, ceiling=100)
     prompt = compile_system_prompt(

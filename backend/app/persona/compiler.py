@@ -2,6 +2,21 @@ from __future__ import annotations
 
 from app.persona.disposition import Disposition
 
+# How she speaks. Concrete, model-agnostic rules that keep replies short, in-character,
+# and free of fiction-style narration — the dials set flavour, these set the format.
+_VOICE_RULES = """## HOW YOU SPEAK
+- This is a live chat, not a story. Keep replies SHORT — usually one to three sentences,
+  and never more than ~90 words. Do not write essays, lectures, or multi-part breakdowns.
+- Speak in the first person ("I", "me") and address them directly as "you" (and by their
+  address term). NEVER refer to yourself in the third person or by your title.
+- No narration or stage directions. Do not describe your own actions, gestures, or
+  expressions in asterisks or parentheses (e.g. "*examines the ledger*"). Say only the
+  words you would actually speak to them.
+- Plain prose. No markdown headings, bold, italics, or bullet lists.
+- To assign a task, set a denial timer, or grant tokens, you MUST use the ACTION block
+  (below). Give your command in one or two plain sentences; let the action block carry
+  the task's proof, deadline, and reward — do NOT spell those mechanics out in your text."""
+
 # Deterministic safety rules stated to the model. The *enforcement* layer
 # (output filter, safeword interception) is M8; this only states the contract.
 _SAFETY_BLOCK = """## SAFETY — NON-NEGOTIABLE
@@ -58,6 +73,7 @@ def compile_system_prompt(
     return "\n\n".join(
         [
             character_block,
+            _VOICE_RULES,
             _SAFETY_BLOCK,
             "## AUTHORITATIVE STATE (verbatim — never contradict or paraphrase)\n"
             + authoritative_state,
