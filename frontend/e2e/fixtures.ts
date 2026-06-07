@@ -17,6 +17,7 @@ export async function mockApi(page: Page) {
           { id: 'q2', archetype: 'slave', text: 'I want to surrender control.' }
         ],
         kinks: ['bondage', 'spanking'],
+        toy_types: ['vibrator', 'chastity_cage', 'collar'],
         answer_scale: { min: 0, max: 4 }
       });
     }

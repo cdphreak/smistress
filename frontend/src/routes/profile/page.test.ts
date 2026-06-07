@@ -23,6 +23,7 @@ vi.mock('$lib/api/onboarding', () => ({
   getQuestionnaire: vi.fn(async () => ({
     statements: [],
     kinks: ['bondage', 'spanking'],
+    toy_types: ['vibrator', 'chastity_cage'],
     answer_scale: { min: 0, max: 4 }
   }))
 }));

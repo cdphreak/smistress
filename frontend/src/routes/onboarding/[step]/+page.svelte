@@ -31,10 +31,10 @@
   let questionnaire = $state<Questionnaire | null>(null);
   let revealCharacter = $state<{ honorific: string; address_term: string } | null>(null);
 
-  // The questionnaire (archetype statements + kink vocabulary) is fetched once
-  // and reused across the archetype and kinks steps.
+  // The questionnaire (archetype statements + kink vocabulary + toy types) is
+  // fetched once and reused across the archetype, kinks, and toys steps.
   $effect(() => {
-    if ((step === 'archetype' || step === 'kinks') && !questionnaire) {
+    if ((step === 'archetype' || step === 'kinks' || step === 'toys') && !questionnaire) {
       getQuestionnaire().then((q) => (questionnaire = q));
     }
   });
@@ -148,7 +148,11 @@
     <p class="label">Loading…</p>
   {/if}
 {:else if step === 'toys'}
-  <Toys onnext={onToys} />
+  {#if questionnaire}
+    <Toys types={questionnaire.toy_types} onnext={onToys} />
+  {:else}
+    <p class="label">Loading…</p>
+  {/if}
 {:else if step === 'so'}
   <SoContext onnext={onSo} />
 {:else if step === 'goals'}

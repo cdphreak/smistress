@@ -83,6 +83,13 @@ async def test_add_and_list_toys(client):
     toys = r.json()
     assert len(toys) == 1
     assert toys[0]["name"] == "Apex"
+    assert toys[0]["type"] == "vibrator"
+
+
+async def test_add_toy_rejects_unknown_type(client):
+    pid = await _new_profile(client)
+    r = await client.post(f"/profile/{pid}/toys", json={"name": "Mystery", "type": "spaceship"})
+    assert r.status_code == 422  # not in the ToyType vocabulary
 
 
 async def test_add_and_list_goals(client):
