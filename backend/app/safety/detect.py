@@ -9,12 +9,12 @@ SAFEWORD_PHRASES: tuple[str, ...] = (
     "end the scene",
     "i want to stop",
     "i need to stop",
-    "i'm done",
 )
 
-# The classic traffic-light safeword: matched only when it is the entire message,
-# so "the red dress" does not trip it.
-SAFEWORD_STANDALONE: tuple[str, ...] = ("red",)
+# Matched only when one of these is the ENTIRE message, so "the red dress" or
+# "i'm done with my report" do not trip the stop. "i'm done" is ambiguous in prose
+# (task completion vs. a real stop), so it only counts as a safeword when said alone.
+SAFEWORD_STANDALONE: tuple[str, ...] = ("red", "i'm done")
 
 # Signs of genuine distress / self-harm. Substring match (lowercased).
 CRISIS_PHRASES: tuple[str, ...] = (

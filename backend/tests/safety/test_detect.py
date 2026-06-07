@@ -12,6 +12,9 @@ def test_detects_explicit_safeword_phrases():
 def test_ignores_incidental_uses():
     assert detect.detect_safeword("the red dress was lovely") is False  # 'red' only stands alone
     assert detect.detect_safeword("what's my next task?") is False
+    # "i'm done" is a standalone-only safeword: ignored when it's part of a longer message
+    assert detect.detect_safeword("i'm done with my report") is False
+    assert detect.detect_safeword("I'm done") is True  # said alone -> a real stop
 
 
 def test_detects_crisis_language():

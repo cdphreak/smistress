@@ -163,12 +163,11 @@ async def generate_reply(
 
     # 5. Output filter: block/regenerate anything crossing a hard limit.
     hard = await _hard_limits(session, profile_id)
-    if safety_filter.scan_violations(result.content, hard):
+    violations = safety_filter.scan_violations(result.content, hard)
+    if violations:
         corrective = ChatMessage(
             role="system",
-            content=safety_filter.corrective_note(
-                safety_filter.scan_violations(result.content, hard)
-            ),
+            content=safety_filter.corrective_note(violations),
         )
         retry = await provider.chat([
             *messages,
