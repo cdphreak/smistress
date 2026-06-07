@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.character import CharacterModel
 from app.db.models.economy import EconomyState
+from app.db.models.safety import SafetyState
 from app.db.models.profile import (
     ArchetypeResult,
     Goal,
@@ -41,6 +42,7 @@ async def create_profile(session: AsyncSession, data: ProfileCreate) -> SubProfi
     await session.flush()  # populate profile.id
     session.add(CharacterModel(profile_id=profile.id))  # all-default persona
     session.add(EconomyState(profile_id=profile.id))
+    session.add(SafetyState(profile_id=profile.id))
     await session.flush()
     return profile
 
