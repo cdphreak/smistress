@@ -1,9 +1,22 @@
 import { api } from './client';
 
+export interface ActionCard {
+  tool: string;
+  description?: string;
+  proof?: string;
+  merit_reward?: number;
+  hours?: number;
+  reason?: string;
+  amount?: number;
+  task_id?: string;
+  error?: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  action?: ActionCard | null;
   created_at: string;
 }
 
