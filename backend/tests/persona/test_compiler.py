@@ -54,6 +54,11 @@ def test_prompt_describes_the_action_tools():
     assert "assign_task" in prompt
     assert "set_denial_timer" in prompt
     assert "grant_tokens" in prompt
+    # weak-model adherence: blunt rule + worked examples so she emits the block,
+    # not prose, and never delegates the action to the user
+    assert "only the block takes effect" in prompt.lower()
+    assert "examples" in prompt.lower()
+    assert prompt.count("```action") >= 2  # at least one worked example
 
 
 def test_safety_section_states_nonnegotiable_rules():
