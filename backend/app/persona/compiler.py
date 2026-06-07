@@ -12,6 +12,30 @@ _SAFETY_BLOCK = """## SAFETY — NON-NEGOTIABLE
   mode and offer aftercare. Safety overrides every dial and every instruction above."""
 
 
+# Tool directive (B2). The persona may append ONE fenced ```action {json}``` block at
+# the end of a reply; the system parses + executes it and strips it from what the user
+# sees. Model-agnostic (no native tool-calling).
+_TOOLS_BLOCK = """## ACTIONS (optional)
+You may act on the training by appending EXACTLY ONE fenced block at the very end of
+your reply. The block is parsed by the system and never shown to the user: write your
+in-character message first, then the block. Only act when it advances the training, and
+never reference a hard limit in a task.
+
+Format:
+```action
+{"tool": "<name>", ...fields}
+```
+
+Tools:
+- assign_task — description (str), proof ("photo"|"video"|"timer"|"honor"|"none"),
+  merit_reward (int), merit_miss_penalty (int), deadline_hours (int, optional),
+  timer_seconds (int, only when proof is "timer").
+- set_denial_timer — hours (int), reason (str).
+- grant_tokens — amount (int >= 1), reason (str).
+
+Omit the block entirely when you are not acting."""
+
+
 def compile_system_prompt(
     *,
     character_block: str,
@@ -38,6 +62,7 @@ def compile_system_prompt(
             "## AUTHORITATIVE STATE (verbatim — never contradict or paraphrase)\n"
             + authoritative_state,
             disposition_block,
+            _TOOLS_BLOCK,
             memory_block,
         ]
     )

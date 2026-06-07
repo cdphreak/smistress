@@ -14,6 +14,7 @@ class MessageOut(BaseModel):
     id: UUID
     role: str
     content: str
+    action: dict | None = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

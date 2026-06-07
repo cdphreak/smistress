@@ -40,7 +40,16 @@ export async function mockApi(page: Page) {
     if (path.endsWith('/messages') && method === 'GET') return json([]);
     if (path.endsWith('/chat') && method === 'POST') {
       const body = req.postDataJSON() as { content: string };
-      return json({ id: 'm2', role: 'assistant', content: `Heard: ${body.content}`, created_at: 'now' });
+      const wantsTask = /task/i.test(body.content);
+      return json({
+        id: 'm2',
+        role: 'assistant',
+        content: `Heard: ${body.content}`,
+        action: wantsTask
+          ? { tool: 'assign_task', description: 'Posture drill', proof: 'honor', merit_reward: 10 }
+          : null,
+        created_at: 'now'
+      });
     }
     if (path.endsWith('/dossier') && method === 'GET')
       return json({

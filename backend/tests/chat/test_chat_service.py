@@ -41,6 +41,34 @@ async def test_post_message_sends_prior_history_to_the_model(session):
     assert contents == ["first", "one", "second"]
 
 
+async def test_post_message_executes_action_and_strips_block(session):
+    from sqlalchemy import select
+
+    from app.db.models.task import Task
+
+    p = await _profile(session)
+    scripted = (
+        "On the board, pet.\n"
+        '```action\n{"tool": "assign_task", "description": "Posture drill", '
+        '"proof": "honor", "merit_reward": 10}\n```'
+    )
+    provider = MockLLMProvider(scripted=[ChatResult(content=scripted)])
+    reply = await chat_svc.post_message(session, p.id, "give me a task", provider, NullMemoryStore())
+
+    assert reply.content == "On the board, pet."  # block stripped
+    assert reply.action["tool"] == "assign_task"  # action recorded
+    tasks = (await session.execute(select(Task).where(Task.profile_id == p.id))).scalars().all()
+    assert len(tasks) == 1  # task actually created
+
+
+async def test_post_message_without_action_has_none(session):
+    p = await _profile(session)
+    provider = MockLLMProvider(scripted=[ChatResult(content="Just words.")])
+    reply = await chat_svc.post_message(session, p.id, "hi", provider, NullMemoryStore())
+    assert reply.content == "Just words."
+    assert reply.action is None
+
+
 async def test_build_dossier_composes_economy_disposition_active_task(session):
     p = await _profile(session)
     d = await chat_svc.build_dossier(session, p.id)

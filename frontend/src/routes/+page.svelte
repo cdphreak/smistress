@@ -7,6 +7,7 @@
   import { safety } from '$lib/stores/safety.svelte';
   import { isSafeword } from '$lib/safety/phrases';
   import Bubble from '$lib/design/components/Bubble.svelte';
+  import ActionCard from '$lib/chat/ActionCard.svelte';
   import DossierBar from '$lib/chat/DossierBar.svelte';
 
   let draft = $state('');
@@ -46,6 +47,9 @@
   <main class="stream">
     {#each chat.messages as m (m.id)}
       <Bubble role={m.role} content={m.content} />
+      {#if m.action}
+        <ActionCard action={m.action} />
+      {/if}
     {/each}
     {#if chat.messages.length === 0}
       <p class="empty label">She is waiting. Say something.</p>
