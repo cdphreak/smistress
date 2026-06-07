@@ -1,0 +1,18 @@
+:root {
+  --ink: #0E0E0E;
+  --raised: #161616;
+  --muted: #777;
+  --paper: #FAFAFA;
+  --accent: #C20E1A;          /* accent AND danger/stop — one color, deliberately */
+  --accent-muted: #7d1a20;    /* muted-crimson for soft limits */
+  --hairline: #2a2a2a;
+  --space: 8px;
+  --font-display: ui-sans-serif, 'Arial Narrow', system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ink); color: var(--paper); font-family: var(--font-body); }
+.display { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; }
+.label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; color: var(--muted); }
+.ledger { font-family: var(--font-mono); }

@@ -25,6 +25,18 @@ class ProfileCreated(BaseModel):
     intensity_ceiling: int
 
 
+# ---- preferences ----------------------------------------------------------
+class PreferencesIn(BaseModel):
+    intensity_ceiling: int = Field(default=50, ge=0, le=100)
+    aftercare_prefs: str | None = None
+
+
+class PreferencesOut(BaseModel):
+    intensity_ceiling: int
+    aftercare_prefs: str | None
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ---- archetype ------------------------------------------------------------
 class ArchetypeSubmission(BaseModel):
     # statement id -> agreement 0..4
