@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.db.enums import GoalStatus, KinkRating
+from app.db.enums import GoalStatus, KinkRating, ToyType
 
 
 def _dial() -> int | None:
@@ -70,7 +70,7 @@ class KinkSheetIn(BaseModel):
 # ---- toys -----------------------------------------------------------------
 class ToyIn(BaseModel):
     name: str
-    type: str
+    type: ToyType
     intiface_capable: bool = False
     notes: str | None = None
 

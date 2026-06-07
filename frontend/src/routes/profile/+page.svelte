@@ -23,6 +23,7 @@
 
   let profile = $state<Profile | null>(null);
   let kinkVocab = $state<string[]>([]);
+  let toyTypes = $state<string[]>([]);
   let editing = $state<string | null>(null);
   let saved = $state<string | null>(null);
 
@@ -35,14 +36,19 @@
   });
 
   async function ensureVocab() {
-    if (kinkVocab.length === 0) {
+    if (kinkVocab.length === 0 || toyTypes.length === 0) {
       const q = await getQuestionnaire();
       kinkVocab = q.kinks;
+      toyTypes = q.toy_types;
     }
   }
   async function openKinks() {
     await ensureVocab();
     editing = 'kinks';
+  }
+  async function openToys() {
+    await ensureVocab();
+    editing = 'toys';
   }
   function flash(section: string) {
     saved = section;
@@ -130,10 +136,10 @@
     <section>
       <div class="row">
         <h2 class="label">Toys {#if saved === 'toys'}<span class="ok">saved</span>{/if}</h2>
-        <button class="edit" onclick={() => (editing = 'toys')}>Add</button>
+        <button class="edit" onclick={openToys}>Add</button>
       </div>
       {#if editing === 'toys'}
-        <Toys onnext={onToy} />
+        <Toys types={toyTypes} onnext={onToy} />
       {:else}
         <ul class="list">{#each profile.toys as t}<li><span>{t.name}</span> · {t.type}</li>{/each}</ul>
       {/if}

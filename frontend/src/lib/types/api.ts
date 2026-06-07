@@ -171,7 +171,8 @@ export interface paths {
         get: operations["get_full_profile_profile__profile_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Profile */
+        delete: operations["delete_profile_profile__profile_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -399,6 +400,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/profile/{profile_id}/safeword": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Safeword */
+        post: operations["safeword_profile__profile_id__safeword_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume */
+        post: operations["resume_profile__profile_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/safety": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Safety */
+        get: operations["get_safety_profile__profile_id__safety_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/hiatus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Hiatus */
+        post: operations["set_hiatus_profile__profile_id__hiatus_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/lower-limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lower Limit */
+        post: operations["lower_limit_profile__profile_id__lower_limit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/consent-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Consent Check */
+        post: operations["consent_check_profile__profile_id__consent_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -607,6 +710,11 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HiatusIn */
+        HiatusIn: {
+            /** On */
+            on: boolean;
+        };
         /** KinkItem */
         KinkItem: {
             /** Kink */
@@ -628,6 +736,18 @@ export interface components {
         KinkSheetIn: {
             /** Entries */
             entries: components["schemas"]["KinkItem"][];
+        };
+        /** LowerLimitIn */
+        LowerLimitIn: {
+            /** Kink */
+            kink: string;
+            rating: components["schemas"]["KinkRating"];
+        };
+        /** LowerLimitOut */
+        LowerLimitOut: {
+            /** Kink */
+            kink: string;
+            rating: components["schemas"]["KinkRating"];
         };
         /** PreferencesIn */
         PreferencesIn: {
@@ -707,6 +827,15 @@ export interface components {
          * @enum {string}
          */
         ProofRequirement: "photo" | "video" | "timer" | "honor" | "none";
+        /** SafetyStateOut */
+        SafetyStateOut: {
+            /** Is Halted */
+            is_halted: boolean;
+            /** On Hiatus */
+            on_hiatus: boolean;
+            /** Consent Check Due */
+            consent_check_due: boolean;
+        };
         /** SoContextIn */
         SoContextIn: {
             /**
@@ -729,6 +858,19 @@ export interface components {
             tokens: number;
             /** Denial Timers */
             denial_timers: components["schemas"]["DenialTimerOut"][];
+        };
+        /** StopReceiptOut */
+        StopReceiptOut: {
+            /** Scene Halted */
+            scene_halted: boolean;
+            /** Denial Lifted */
+            denial_lifted: number;
+            /** Merit Penalty */
+            merit_penalty: number;
+            /** Aftercare */
+            aftercare: string;
+            /** Message */
+            message: string;
         };
         /** TaskCreate */
         TaskCreate: {
@@ -790,8 +932,7 @@ export interface components {
         ToyIn: {
             /** Name */
             name: string;
-            /** Type */
-            type: string;
+            type: components["schemas"]["ToyType"];
             /**
              * Intiface Capable
              * @default false
@@ -804,8 +945,7 @@ export interface components {
         ToyOut: {
             /** Name */
             name: string;
-            /** Type */
-            type: string;
+            type: components["schemas"]["ToyType"];
             /**
              * Intiface Capable
              * @default false
@@ -819,6 +959,16 @@ export interface components {
              */
             id: string;
         };
+        /**
+         * ToyType
+         * @description Controlled vocabulary for the toy inventory (spec 4).
+         *
+         *     A fixed set so toy types can be referenced as task requirements (e.g. the
+         *     mistress requiring a specific implement). Stored as a plain string column;
+         *     this enum validates input and is exposed to the UI via the questionnaire.
+         * @enum {string}
+         */
+        ToyType: "vibrator" | "wand" | "dildo" | "butt_plug" | "anal_beads" | "cock_ring" | "chastity_cage" | "nipple_clamps" | "collar" | "leash" | "gag" | "blindfold" | "restraints" | "rope" | "spreader_bar" | "paddle" | "crop" | "flogger" | "other";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1282,6 +1432,35 @@ export interface operations {
             };
         };
     };
+    delete_profile_profile__profile_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_disposition_profile__profile_id__disposition_get: {
         parameters: {
             query?: never;
@@ -1729,6 +1908,200 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    safeword_profile__profile_id__safeword_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StopReceiptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_profile__profile_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_safety_profile__profile_id__safety_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_hiatus_profile__profile_id__hiatus_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HiatusIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lower_limit_profile__profile_id__lower_limit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LowerLimitIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LowerLimitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    consent_check_profile__profile_id__consent_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyStateOut"];
                 };
             };
             /** @description Validation Error */

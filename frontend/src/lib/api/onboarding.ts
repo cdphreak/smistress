@@ -3,6 +3,7 @@ import { api } from './client';
 export interface Questionnaire {
   statements: { id: string; archetype: string; text: string }[];
   kinks: string[];
+  toy_types: string[];
   answer_scale: { min: number; max: number };
 }
 export interface ProfileCreated {

@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.enums import ToyType
 from app.db.session import get_session
 from app.schemas.onboarding import ProfileCreate, ProfileCreated
 from app.services import profile as svc
@@ -17,6 +18,7 @@ async def get_questionnaire() -> dict:
     return {
         "statements": list(QUESTIONNAIRE),
         "kinks": list(KINK_CATALOG),
+        "toy_types": [t.value for t in ToyType],
         "answer_scale": {"min": 0, "max": MAX_ANSWER},
     }
 

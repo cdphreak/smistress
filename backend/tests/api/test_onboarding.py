@@ -20,6 +20,8 @@ async def test_get_questionnaire(client):
     body = r.json()
     assert len(body["statements"]) >= 14
     assert "bondage" in body["kinks"]
+    assert "chastity_cage" in body["toy_types"]  # controlled toy vocabulary
+    assert "vibrator" in body["toy_types"]
     assert body["answer_scale"]["max"] == 4
 
 
