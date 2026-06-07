@@ -13,7 +13,8 @@ test('chat home shows the dossier and exchanges a message', async ({ page }) => 
   await page.getByPlaceholder(/say something/i).fill('what now?');
   await page.getByRole('button', { name: /send/i }).click();
 
-  await expect(page.getByText('what now?')).toBeVisible(); // optimistic user bubble
+  // exact match: the reply "Heard: what now?" also contains "what now?"
+  await expect(page.getByText('what now?', { exact: true })).toBeVisible(); // optimistic user bubble
   await expect(page.getByText('Heard: what now?')).toBeVisible(); // her reply
 });
 
