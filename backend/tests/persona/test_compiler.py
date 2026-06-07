@@ -33,6 +33,17 @@ def test_memory_section_renders_when_provided():
     assert "strong Monday performance" in prompt
 
 
+def test_prompt_describes_the_action_tools():
+    disp = compute_disposition(0, [], warmth=30, ceiling=100)
+    prompt = compile_system_prompt(
+        character_block="x", authoritative_state="y", disposition=disp, memory=None
+    )
+    assert "```action" in prompt
+    assert "assign_task" in prompt
+    assert "set_denial_timer" in prompt
+    assert "grant_tokens" in prompt
+
+
 def test_safety_section_states_nonnegotiable_rules():
     disp = compute_disposition(0, [], warmth=30, ceiling=100)
     prompt = compile_system_prompt(
