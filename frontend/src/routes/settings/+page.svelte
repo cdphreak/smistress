@@ -9,7 +9,7 @@
   } from '$lib/api/safety';
   import type { KinkRating } from '$lib/api/profile';
 
-  let safety = $state<SafetyState | null>(null);
+  let safetyState = $state<SafetyState | null>(null);
   let limitKink = $state('');
   let limitRating = $state<'soft_limit' | 'hard_limit'>('hard_limit');
   let confirmingDelete = $state(false);
@@ -17,7 +17,7 @@
 
   async function load() {
     if (!session.profileId) return;
-    safety = await getSafety(session.profileId);
+    safetyState = await getSafety(session.profileId);
   }
   $effect(() => {
     load();
@@ -28,8 +28,8 @@
     setTimeout(() => (note = null), 2500);
   }
   async function toggleHiatus() {
-    safety = await setHiatus(session.profileId!, !(safety?.on_hiatus ?? false));
-    flash(safety.on_hiatus ? 'Training paused.' : 'Training resumed.');
+    safetyState = await setHiatus(session.profileId!, !(safetyState?.on_hiatus ?? false));
+    flash(safetyState.on_hiatus ? 'Training paused.' : 'Training resumed.');
   }
   async function tightenLimit() {
     if (!limitKink.trim()) return;
@@ -38,7 +38,7 @@
     limitKink = '';
   }
   async function acknowledgeConsent() {
-    safety = await consentCheck(session.profileId!);
+    safetyState = await consentCheck(session.profileId!);
     flash('Consent check-in recorded.');
   }
   async function reallyDelete() {
@@ -57,7 +57,7 @@
     <h2 class="label">Hiatus</h2>
     <p class="muted">Pause training with no penalty. Nothing counts against you while paused.</p>
     <button class="ctl" onclick={toggleHiatus}>
-      {safety?.on_hiatus ? 'Resume training' : 'Pause training (hiatus)'}
+      {safetyState?.on_hiatus ? 'Resume training' : 'Pause training (hiatus)'}
     </button>
   </section>
 
@@ -80,7 +80,7 @@
 
   <section>
     <h2 class="label">Consent check-in</h2>
-    {#if safety?.consent_check_due}
+    {#if safetyState?.consent_check_due}
       <p class="due">Check-in due — is this still right for you?</p>
     {:else}
       <p class="muted">Up to date.</p>
