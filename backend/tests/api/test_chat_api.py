@@ -56,3 +56,16 @@ async def test_dossier_reads_live_status(client):
 async def test_chat_unknown_profile_404(client):
     r = await client.post(f"/profile/{uuid.uuid4()}/chat", json={"content": "hi"})
     assert r.status_code == 404
+
+
+async def test_chat_returns_action_card(client):
+    pid = await _new_profile(client)
+    app.dependency_overrides[chat_api.get_provider] = lambda: MockLLMProvider(
+        scripted=[ChatResult(content='Kneel.\n```action\n{"tool":"grant_tokens","amount":2}\n```')]
+    )
+    r = await client.post(f"/profile/{pid}/chat", json={"content": "reward me"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["content"] == "Kneel."
+    assert body["action"]["tool"] == "grant_tokens"
+    assert body["action"]["amount"] == 2

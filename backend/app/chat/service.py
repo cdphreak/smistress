@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chat import tools
 from app.db.enums import TaskStatus
 from app.db.models.message import Message
 from app.db.models.task import Task
@@ -55,7 +56,10 @@ async def post_message(
         session, profile_id, conversation, provider, store=store
     )
 
-    reply = Message(profile_id=profile_id, role="assistant", content=result.content)
+    clean, action = tools.parse_action(result.content)
+    card = await tools.execute_action(session, profile_id, action) if action else None
+
+    reply = Message(profile_id=profile_id, role="assistant", content=clean, action=card)
     session.add(reply)
     await session.flush()
     return reply
