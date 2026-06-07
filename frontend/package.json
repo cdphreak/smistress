@@ -11,9 +11,11 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
-		"gen:api": "node scripts/dump-openapi.mjs && openapi-typescript openapi.json -o src/lib/types/api.ts"
+		"gen:api": "node scripts/dump-openapi.mjs && openapi-typescript openapi.json -o src/lib/types/api.ts",
+		"test:e2e": "playwright test"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.49.1",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-node": "^5",
 		"@sveltejs/kit": "^2.57.0",
