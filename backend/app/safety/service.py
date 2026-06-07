@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.enums import KinkRating
+from app.db.models.profile import KinkEntry
 from app.db.models.safety import SafetyState
 from app.economy import service as econ_svc
 from app.services import profile as profile_svc
@@ -26,6 +28,11 @@ CRISIS_MESSAGE = (
     "line: in the US call or text 988 (Suicide & Crisis Lifeline), or text HOME to 741741. "
     "If you're elsewhere, your local emergency number can help. I'm here with you."
 )
+
+# Periodic "is this still right for you?" cadence (spec 9 well-being).
+CONSENT_CHECK_INTERVAL = timedelta(days=14)
+# Lowering a limit means making it MORE restrictive, honored immediately.
+_LIMIT_RATINGS = (KinkRating.SOFT_LIMIT, KinkRating.HARD_LIMIT)
 
 
 @dataclass
@@ -97,3 +104,59 @@ async def is_frozen(session: AsyncSession, profile_id: uuid.UUID) -> bool:
     """Halted (safeword) or on hiatus -> the loop must not penalize (spec 9)."""
     state = await get_or_create_state(session, profile_id)
     return state.is_halted or state.on_hiatus
+
+
+async def set_hiatus(
+    session: AsyncSession, profile_id: uuid.UUID, on: bool
+) -> SafetyState:
+    """Pause/resume training with no merit penalty (spec 9). Caller commits."""
+    state = await get_or_create_state(session, profile_id)
+    state.on_hiatus = on
+    await session.flush()
+    return state
+
+
+async def lower_limit(
+    session: AsyncSession, profile_id: uuid.UUID, *, kink: str, rating: KinkRating
+) -> KinkEntry:
+    """Tighten a single limit immediately (spec 9). Upserts the kink entry.
+
+    Honored on the next turn because the authoritative-state block injects the
+    current limits every time. Only SOFT/HARD limit ratings are accepted.
+    """
+    if rating not in _LIMIT_RATINGS:
+        raise ValueError("lower_limit only accepts SOFT_LIMIT or HARD_LIMIT")
+    await profile_svc.get_profile(session, profile_id)  # 404 guard
+    entry = (await session.execute(
+        select(KinkEntry).where(
+            KinkEntry.profile_id == profile_id, KinkEntry.kink == kink
+        )
+    )).scalar_one_or_none()
+    if entry is None:
+        entry = KinkEntry(profile_id=profile_id, kink=kink, rating=rating)
+        session.add(entry)
+    else:
+        entry.rating = rating
+    await session.flush()
+    return entry
+
+
+def consent_check_due(
+    state: SafetyState,
+    *,
+    now: datetime | None = None,
+    interval: timedelta = CONSENT_CHECK_INTERVAL,
+) -> bool:
+    now = now or datetime.now(timezone.utc)
+    if state.last_consent_check_at is None:
+        return True
+    return now - state.last_consent_check_at >= interval
+
+
+async def record_consent_check(
+    session: AsyncSession, profile_id: uuid.UUID
+) -> SafetyState:
+    state = await get_or_create_state(session, profile_id)
+    state.last_consent_check_at = datetime.now(timezone.utc)
+    await session.flush()
+    return state
