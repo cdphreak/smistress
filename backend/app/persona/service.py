@@ -15,6 +15,9 @@ from app.memory.store import MemoryStore, retrieve_memory
 from app.persona.character_block import render_character_block
 from app.persona.compiler import compile_system_prompt
 from app.persona.disposition import MOOD_WINDOW, Disposition, compute_disposition
+from app.safety import detect
+from app.safety import filter as safety_filter
+from app.safety import service as safety_svc
 from app.services import profile as profile_svc
 
 # Task statuses that count as "resolved" history for mood, newest first.
@@ -34,6 +37,16 @@ async def _recent_outcomes(session: AsyncSession, profile_id: uuid.UUID) -> list
         .where(Task.profile_id == profile_id, Task.status.in_(_RESOLVED))
         .order_by(Task.updated_at.desc())
         .limit(MOOD_WINDOW)  # only the most-recent MOOD_WINDOW shape mood
+    )).scalars().all()
+    return list(rows)
+
+
+async def _hard_limits(session: AsyncSession, profile_id: uuid.UUID) -> list[str]:
+    rows = (await session.execute(
+        select(KinkEntry.kink).where(
+            KinkEntry.profile_id == profile_id,
+            KinkEntry.rating == KinkRating.HARD_LIMIT,
+        )
     )).scalars().all()
     return list(rows)
 
@@ -88,6 +101,11 @@ async def build_authoritative_state_block(session: AsyncSession, profile_id: uui
         )
     else:
         lines.append("ACTIVE TASK: none")
+    safety_state = await safety_svc.get_or_create_state(session, profile_id)
+    if safety_state.is_halted:
+        lines.insert(0, "SCENE HALTED (user safeworded) — make no new demands; stay calm and caring.")
+    elif safety_state.on_hiatus:
+        lines.insert(0, "ON HIATUS — training is paused; do not assign tasks or apply pressure.")
     return "\n".join(lines)
 
 
@@ -115,16 +133,49 @@ async def generate_reply(
     memory: str | None = None,
     store: MemoryStore | None = None,
 ) -> ChatResult:
-    """Compile the persona prompt and get a plain reply (no tools — tool calls are M6).
-
-    If a memory store is provided and no explicit memory text was passed, retrieve a
-    memory block keyed on the latest user message (degrading to none on failure).
+    """Safety-gated persona turn (spec 9). Safeword/crisis are intercepted before the
+    LLM; the reply is scanned for hard-limit violations after.
     """
+    latest_user = next(
+        (m.content for m in reversed(conversation) if m.role == "user"), ""
+    )
+
+    # 1. Crisis takes precedence over everything: break character, surface help.
+    if detect.detect_crisis(latest_user):
+        return ChatResult(content=safety_svc.crisis_message())
+
+    # 2. Safeword / panic phrase, intercepted before the LLM (deterministic stop).
+    if detect.detect_safeword(latest_user):
+        receipt = await safety_svc.trigger_stop(session, profile_id, reason="safeword")
+        return ChatResult(content=f"{receipt.message}\n\n{receipt.aftercare}")
+
+    # 3. Already halted -> stay in a calm hold until the user resumes.
+    state = await safety_svc.get_or_create_state(session, profile_id)
+    if state.is_halted:
+        return ChatResult(content=safety_svc.HOLD_MESSAGE)
+
+    # 4. Normal turn.
     if memory is None and store is not None:
-        query = next(
-            (m.content for m in reversed(conversation) if m.role == "user"), ""
-        )
-        memory = await retrieve_memory(store, group_id=str(profile_id), query=query)
+        memory = await retrieve_memory(store, group_id=str(profile_id), query=latest_user)
     system_prompt = await compile_persona_prompt(session, profile_id, memory=memory)
     messages = [ChatMessage(role="system", content=system_prompt), *conversation]
-    return await provider.chat(messages)
+    result = await provider.chat(messages)
+
+    # 5. Output filter: block/regenerate anything crossing a hard limit.
+    hard = await _hard_limits(session, profile_id)
+    violations = safety_filter.scan_violations(result.content, hard)
+    if violations:
+        corrective = ChatMessage(
+            role="system",
+            content=safety_filter.corrective_note(violations),
+        )
+        retry = await provider.chat([
+            *messages,
+            ChatMessage(role="assistant", content=result.content),
+            corrective,
+        ])
+        if not safety_filter.scan_violations(retry.content, hard):
+            return retry
+        return ChatResult(content=safety_filter.SAFE_REPLY)
+
+    return result

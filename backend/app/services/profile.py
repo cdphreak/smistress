@@ -7,7 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models.character import CharacterModel
-from app.db.models.economy import EconomyState
+from app.db.models.economy import DenialTimer, EconomyState
+from app.db.models.loop import Proof, TaskTimer
+from app.db.models.memory import MemoryEpisode
+from app.db.models.safety import SafetyState
+from app.db.models.task import Task
 from app.db.models.profile import (
     ArchetypeResult,
     Goal,
@@ -41,8 +45,31 @@ async def create_profile(session: AsyncSession, data: ProfileCreate) -> SubProfi
     await session.flush()  # populate profile.id
     session.add(CharacterModel(profile_id=profile.id))  # all-default persona
     session.add(EconomyState(profile_id=profile.id))
+    session.add(SafetyState(profile_id=profile.id))
     await session.flush()
     return profile
+
+
+async def delete_profile(session: AsyncSession, profile_id: uuid.UUID) -> None:
+    """One-tap delete-everything (spec 9 data control). FK-safe order. Caller commits."""
+    await get_profile(session, profile_id)  # raises ProfileNotFound
+
+    # Children of `task` first (they FK to task.id).
+    task_ids = (await session.execute(
+        select(Task.id).where(Task.profile_id == profile_id)
+    )).scalars().all()
+    if task_ids:
+        await session.execute(delete(Proof).where(Proof.task_id.in_(task_ids)))
+        await session.execute(delete(TaskTimer).where(TaskTimer.task_id.in_(task_ids)))
+
+    for model in (
+        Task, DenialTimer, EconomyState, CharacterModel, MemoryEpisode,
+        SafetyState, KinkEntry, Toy, Goal, ArchetypeResult, SoContext,
+    ):
+        await session.execute(delete(model).where(model.profile_id == profile_id))
+
+    await session.execute(delete(SubProfile).where(SubProfile.id == profile_id))
+    await session.flush()
 
 
 async def get_profile(session: AsyncSession, profile_id: uuid.UUID) -> SubProfile:

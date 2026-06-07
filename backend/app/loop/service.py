@@ -14,6 +14,7 @@ from app.economy import service as econ_svc
 from app.llm.provider import LLMProvider
 from app.loop import verification
 from app.memory import service as mem_svc
+from app.safety import service as safety_svc
 from app.services import profile as profile_svc
 
 
@@ -93,7 +94,10 @@ async def sweep_missed(session: AsyncSession, profile_id: uuid.UUID | None = Non
     if profile_id is not None:
         stmt = stmt.where(Task.profile_id == profile_id)
     overdue = (await session.execute(stmt)).scalars().all()
+    missed = 0
     for task in overdue:
+        if await safety_svc.is_frozen(session, task.profile_id):
+            continue  # halted by safeword or on hiatus -> no miss, no penalty (spec 9)
         task.status = TaskStatus.MISSED
         await session.flush()  # ensure status is set before applying the outcome
         await econ_svc.apply_task_outcome(session, task)
@@ -106,8 +110,9 @@ async def sweep_missed(session: AsyncSession, profile_id: uuid.UUID | None = Non
             source_description="task",
             reference_time=now,
         )
+        missed += 1
     await session.flush()
-    return len(overdue)
+    return missed
 
 
 async def start_task(session: AsyncSession, task_id: uuid.UUID) -> Task:

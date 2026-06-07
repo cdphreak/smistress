@@ -205,3 +205,15 @@ async def get_full_profile(
         ),
         character=CharacterOut.model_validate(char),
     )
+
+
+@router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_profile(
+    profile_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    try:
+        await svc.delete_profile(session, profile_id)
+    except svc.ProfileNotFound:
+        raise _not_found(profile_id)
+    await session.commit()
