@@ -63,3 +63,11 @@ class TaskStatus(str, enum.Enum):
     VERIFIED_PASS = "verified_pass"
     VERIFIED_FAIL = "verified_fail"
     MISSED = "missed"
+
+
+class LLMAvailability(str, enum.Enum):
+    """System-wide presence of the home-box LLM (Addendum B2). Computed from the
+    last heartbeat's freshness, not stored as a column."""
+
+    OFFLINE = "offline"
+    ONLINE = "online"

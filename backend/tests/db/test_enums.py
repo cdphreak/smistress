@@ -22,3 +22,11 @@ def test_task_status_members():
 
 def test_goal_status_members():
     assert {s.value for s in GoalStatus} == {"active", "achieved", "abandoned"}
+
+
+def test_llm_availability_values():
+    from app.db.enums import LLMAvailability
+
+    assert LLMAvailability.OFFLINE.value == "offline"
+    assert LLMAvailability.ONLINE.value == "online"
+    assert LLMAvailability("online") is LLMAvailability.ONLINE
