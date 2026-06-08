@@ -1,3 +1,4 @@
+from app.db.models.availability import LlmHeartbeat  # noqa: F401
 from app.db.models.character import CharacterModel  # noqa: F401
 from app.db.models.economy import DenialTimer, EconomyState  # noqa: F401
 from app.db.models.loop import Proof, TaskTimer  # noqa: F401

@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.availability import service as avail_svc
 from app.chat import service as chat_svc
 from app.config import Settings
 from app.db.session import get_session
@@ -29,6 +30,16 @@ def get_memory_store() -> MemoryStore:
     return build_memory_store(_settings)
 
 
+async def require_llm_online(session: AsyncSession = Depends(get_session)) -> None:
+    """Live chat needs her present (Addendum B2/B8). Offline -> 503; later milestones
+    route offline turns to the drones instead."""
+    if not await avail_svc.is_online(session):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The Mistress is away — an audience requires her presence.",
+        )
+
+
 def _not_found(profile_id: uuid.UUID) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail=f"profile {profile_id} not found"
@@ -42,6 +53,7 @@ async def post_chat(
     session: AsyncSession = Depends(get_session),
     provider: LLMProvider = Depends(get_provider),
     store: MemoryStore = Depends(get_memory_store),
+    _: None = Depends(require_llm_online),
 ) -> MessageOut:
     try:
         reply = await chat_svc.post_message(session, profile_id, body.content, provider, store)

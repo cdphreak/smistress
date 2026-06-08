@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.availability import router as availability_router
 from app.api.chat import router as chat_router
 from app.api.economy import router as economy_router
 from app.api.memory import router as memory_router
@@ -28,6 +29,7 @@ app.include_router(tasks_router)
 app.include_router(economy_router)
 app.include_router(safety_router)
 app.include_router(chat_router)
+app.include_router(availability_router)
 
 
 def get_provider() -> LLMProvider:
