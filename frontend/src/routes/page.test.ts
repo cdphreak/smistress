@@ -43,11 +43,18 @@ vi.mock('$lib/api/safety', () => ({
 import Page from './+page.svelte';
 import { session } from '$lib/stores/session.svelte';
 import { chat } from '$lib/stores/chat.svelte';
+import { availability } from '$lib/stores/availability.svelte';
+import { drones } from '$lib/stores/drones.svelte';
 import { getAvailability } from '$lib/api/availability';
+import { ApiError } from '$lib/api/client';
+import { sendMessage } from '$lib/api/chat';
+import { getStandingOrders } from '$lib/api/drones';
 
 beforeEach(() => {
   session.setProfileId('p1');
   chat.messages = [];
+  availability.online = false;
+  drones.notices = [];
   vi.clearAllMocks();
 });
 
@@ -78,5 +85,28 @@ test('offline: shows drone standing orders and no chat composer', async () => {
   expect(await screen.findByText(/an audience requires her presence/i)).toBeInTheDocument();
   expect(await screen.findByText(/no standing assignment/i)).toBeInTheDocument();
   // the live composer is not rendered when she is away
+  expect(screen.queryByPlaceholderText(/say something/i)).toBeNull();
+});
+
+test('mid-session 503 flips the home to the offline drone surface', async () => {
+  (getAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({
+    state: 'online',
+    online: true,
+    last_heartbeat_at: 'now'
+  });
+  (getStandingOrders as ReturnType<typeof vi.fn>).mockResolvedValue({
+    notices: [{ unit: 'assignment', line: 'No standing assignment. Await Mistress.' }]
+  });
+  (sendMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+    new ApiError(503, 'The Mistress is away — an audience requires her presence.')
+  );
+  render(Page);
+  const input = (await screen.findByPlaceholderText(/say something/i)) as HTMLTextAreaElement;
+  input.value = 'are you there?';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  screen.getByRole('button', { name: /send/i }).click();
+
+  // after the 503, the offline surface replaces the composer
+  expect(await screen.findByText(/no standing assignment/i)).toBeInTheDocument();
   expect(screen.queryByPlaceholderText(/say something/i)).toBeNull();
 });
