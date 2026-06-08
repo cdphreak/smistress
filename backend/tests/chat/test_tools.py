@@ -63,6 +63,16 @@ async def test_execute_grant_tokens_and_denial(session):
     assert len(await econ_svc.active_denial_timers(session, p.id)) == 1
 
 
+async def test_execute_assign_task_normalizes_capitalized_proof(session):
+    # Capable models often write "Honor"/"Timer"; the enum is lower-case.
+    p = await _profile(session)
+    card = await tools.execute_action(
+        session, p.id, {"tool": "assign_task", "description": "kneel", "proof": "Honor"}
+    )
+    assert card.get("proof") == "honor"
+    assert "error" not in card
+
+
 async def test_execute_unknown_or_bad_returns_error_card(session):
     p = await _profile(session)
     assert (await tools.execute_action(session, p.id, {"tool": "nope"}))["error"]

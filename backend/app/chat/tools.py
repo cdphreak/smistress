@@ -43,7 +43,8 @@ async def execute_action(session: AsyncSession, profile_id: uuid.UUID, action: d
     tool = action.get("tool")
     try:
         if tool == "assign_task":
-            proof = ProofRequirement(action.get("proof", "honor"))
+            # Normalize: capable models often capitalize ("Honor"); the enum is lower-case.
+            proof = ProofRequirement(str(action.get("proof", "honor")).strip().lower())
             deadline = None
             if action.get("deadline_hours"):
                 deadline = datetime.now(timezone.utc) + timedelta(
