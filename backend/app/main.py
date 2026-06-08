@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.availability import router as availability_router
 from app.api.chat import router as chat_router
+from app.api.drones import router as drones_router
 from app.api.economy import router as economy_router
 from app.api.memory import router as memory_router
 from app.api.onboarding import router as onboarding_router
@@ -30,6 +31,7 @@ app.include_router(economy_router)
 app.include_router(safety_router)
 app.include_router(chat_router)
 app.include_router(availability_router)
+app.include_router(drones_router)
 
 
 def get_provider() -> LLMProvider:
