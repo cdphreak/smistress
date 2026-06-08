@@ -61,6 +61,11 @@ deterministic features (see §9), not afterthoughts.
 
 ## 2. Architecture
 
+> **Amended by [Addendum B](#addendum-b--offline-first--modes-of-control-whole-app-pivot) (2026-06-08).**
+> The original assumed an always-available LLM driving chat every turn. Addendum B pivots to
+> **offline-first**: the VPS is 24/7 but the LLM (a home GPU box) is reachable only intermittently.
+> See B2 for the three her-presence states + the home-box heartbeat agent.
+
 Everything runs on **one VPS**, via docker-compose or systemd. No cloud object store, no managed
 services.
 
@@ -150,6 +155,12 @@ into the persona context; onboarding also seeds the initial Graphiti episodes.
 ---
 
 ## 5. The Mistress Persona Engine
+
+> **Amended by [Addendum B](#addendum-b--offline-first--modes-of-control-whole-app-pivot) (2026-06-08).**
+> The full persona engine described here is now the **live audience** experience (LLM present).
+> Offline, deterministic **drones** stand in for her (B3). Merit-computed disposition also selects
+> the **session type** — low merit → a reckoning, high merit → pleasurable (B8). Her tools fire
+> live; offline state changes flow through the deterministic drone/economy services.
 
 A system-prompt-driven chat agent over the swappable OpenAI-compatible provider.
 
@@ -262,6 +273,12 @@ That cutting-but-controlled register is what high Wit + high Strictness + low Cr
 
 ## 6. The Loop Mechanics
 
+> **Amended by [Addendum B](#addendum-b--offline-first--modes-of-control-whole-app-pivot) (2026-06-08).**
+> The loop still holds, but: tasks are now drawn from a **batch-generated pool** and carry an
+> **intensity/discreetness/required-toy** profile filtered by the active **supervision mode** (B6);
+> offline, media proof is **captured & queued** for judgment at the next batch/audience (B5); and a
+> missed/failed task issues a **punishment** into the debt ledger (B7) in addition to the merit hit.
+
 **Task lifecycle:**
 ```
 assigned → in_progress → proof_submitted → verifying → verified_pass
@@ -293,6 +310,12 @@ server-side timers deter casual fudging; they do not try to make cheating imposs
 ---
 
 ## 7. The Privilege Economy (merit-centered)
+
+> **Superseded in part by [Addendum B §B7](#b7-economy-revision--three-quantities) (2026-06-08).**
+> The economy now runs on **three** distinct quantities — **merit** (standing), **debt** (owed
+> penance), **tokens** (reward purse) — and the denial timer is generalized into a full
+> **punishment / debt-ledger** system. Read B7 for the authoritative model; the bullets below
+> remain accurate for merit, rank, tokens, and privileges.
 
 One currency runs everything — **merit** — which also computes disposition (§5).
 
@@ -354,6 +377,11 @@ tailors to the profile/goals, plus on-demand generation.
 ---
 
 ## 9. Safety System (cross-cutting, ships in v1)
+
+> **Reinforced by [Addendum B §B9](#b9-safety-under-offline--modes) (2026-06-08).**
+> Offline-first makes "works even if the LLM is down" the *normal* case, not an edge case. The
+> drones never gate safety. **Supervision mode** is itself a consent/comfort control: lowering
+> control depth (or going on **vacation**) is honored immediately, like lowering a limit (B6).
 
 Safety is deterministic and works **even if the LLM is down**.
 
@@ -532,3 +560,244 @@ Deterministic; never routed through the persona; works even if the LLM is down.
 - Kink sheet = grouped grid, **6-way segmented control**, **crimson/muted-crimson** for hard/soft limits.
 - Safeword = **one confirmation with a pre-halt** (the considered exit, weight of questioning her) **+ instant typed-phrase** (emergency exit); calm out-of-persona stop screen.
 - Tech = **SvelteKit (Svelte 5 runes) + adapter-node**, **BFF proxying FastAPI**, **OpenAPI-generated types**, safety as a global client overlay, phased A/B build order.
+
+---
+
+# Addendum B — Offline-First & Modes of Control (whole-app pivot)
+
+**Date:** 2026-06-08
+**Status:** Approved design, ready for implementation planning.
+**Scope:** A foundational pivot affecting the architecture (§2), persona engine (§5), loop (§6),
+economy (§7), and safety (§9). Reframes the existing built work (live LLM chat, tool-cards,
+disposition engine, economy) as **session mode** and wraps an **offline-first** layer around it.
+Seed ideas: `docs/ideas/offline-ai.md` and `docs/ideas/mode of control.md`.
+
+## B0. Why — the premise
+
+The app must be usable on a 24/7 VPS that has **no GPU**. The LLM runs on a **home gaming box**
+that is only powered on intermittently. So a live, LLM-every-turn chat experience cannot be the
+*normal* state. Rather than treat this as degradation, we make it the **premise**: **the Mistress
+is away; her drones carry out her standing orders, and an audience with her is a privilege you
+earn.** The offline/online seam becomes thematic, not apologetic.
+
+A separate real-life constraint also gets first-class support: a sub has families, jobs, and
+obligations, so the depth of control she may exert must adapt to the sub's current situation
+(`mode of control.md`).
+
+## B1. Two orthogonal axes
+
+The system composes **two independent dimensions**. Almost every behavior is a function of both.
+
+| Axis | Values | Answers | Set by |
+|---|---|---|---|
+| **Her presence** | offline · batch window · live audience | *Is **she** (the LLM) reachable?* | the home box + the heartbeat agent (B2) |
+| **Supervision mode** | full · discreet · task · homeoffice · vacation | *How deeply can the **sub** be controlled right now?* | the sub, manually (B6) |
+
+They stack. *offline + homeoffice* → drones drop only discreet, timer-graced tasks. *live audience
++ discreet* → even **she** keeps it quiet and brief. Supervision mode **binds her too**, not just
+the drones — it reflects the sub's real-world capacity, which her presence does not change.
+
+## B2. Her-presence states & connectivity
+
+| State | LLM | What runs | Who is "present" |
+|---|---|---|---|
+| **OFFLINE** (default) | down | deterministic drone engine serving the batch-generated pools | the drones |
+| **BATCH WINDOW** (semi-opportunistic) | up, briefly | LLM regenerates pools, ingests queued memory, judges queued proof — **no live chat** | drones (background) |
+| **LIVE AUDIENCE** (deliberate ritual) | up | full LLM chat (the current built experience), settles backlog on entry | **her** |
+
+**Connectivity — home-box agent + outbound heartbeat.** A home gaming box behind NAT / a dynamic
+IP cannot be reached *by* the VPS, so the box must initiate. A small **agent** on the gaming box,
+on boot, opens an **outbound** connection to the VPS and sends heartbeats while the local
+OpenAI-compatible LLM endpoint is reachable. The VPS marks LLM `online` while heartbeats arrive and
+`offline` once they lapse. The VPS never needs to reach inward.
+
+- A **live audience** requires the box up **and** the sub deliberately opening an audience in-app.
+- A **batch window** is requested by the VPS (a pending-job flag the agent observes); the agent runs
+  the job opportunistically while the box is up — including when the app *asks the sub to keep the
+  box on a while* to refill thin pools.
+- All model traffic still rides the existing swappable OpenAI-compatible provider seam (§2). The
+  agent is transport/availability only; it does not change how calls are made.
+
+## B3. The drone layer
+
+Offline, deterministic **drones** stand in for the Mistress. **One cold, mechanical functionary
+register**, split by **duty unit**:
+
+- **Assignment unit** — drops the day's task(s) from the task pool.
+- **Discipline unit** — issues punishments, maintains the debt ledger, posts penance.
+- **Reminder unit** — deadline nudges, denial-timer notices, batch-window requests.
+
+Voice is flat and impersonal ("Mistress has assigned… Report when complete."), **visually distinct**
+from her `--raised`/crimson bubbles (a colder, unit-labeled, monospace-leaning treatment) so her
+live warmth reads as earned.
+
+**Offline surface = check-in / dossier-led, not freeform chat.** Home offline is a **standing-orders
+dossier**: today's task(s), active denial timers, the **debt ledger**, merit standing, and
+**pending-her-review** items, each with a short drone line. Interaction is **structured controls**
+— *mark complete, submit proof, start timer, acknowledge* — not conversation. Freeform chat is
+**dimmed and labeled "she is away"**; dialogue is explicitly a live-audience privilege. (The chat
+input offered offline is reduced to structured reporting.)
+
+## B4. Batch generation
+
+When the box is up (a batch window, or at the close of a live audience), the LLM pre-generates the
+material the offline drones serve — **four artifacts**:
+
+1. **Task pool** — state-keyed tasks tailored to goals/profile/skill and difficulty band, each
+   carrying proof type, merit/debt stakes, and an **intensity/discreetness/required-toy** profile
+   (B6). Refilled when low.
+2. **Drone line bank** — prefab in-persona lines per drone event (task drop, reminder, completion
+   ack, miss notice, punishment issued) × merit band × time-of-day, drawn by state so nothing
+   repeats verbatim. Regenerated periodically against staleness.
+3. **Punishment pool** — pre-authored consequences tagged by severity, so the discipline unit can
+   impose a fitting, varied punishment with no LLM present.
+4. **Standing orders** — at the close of each live audience she dictates a short directive set
+   (focus areas, special conditions, a personal line or two) that flavors the drones until the next
+   audience, tying offline behavior to the last real interaction.
+
+When any pool runs thin, the reminder unit prompts the sub to grant a batch window.
+
+## B5. Offline accrues / online settles
+
+A single consistent rhythm governs everything the LLM is needed for but is absent for:
+
+- **Media proof (photo/video)** → captured offline, stored, marked **"pending her review."** The
+  vision model judges the backlog at the next batch window / audience; merit and debt settle then.
+  A bad backlog can sour an audience.
+- **Evolving memory (Graphiti)** → episodes **queue** offline and **ingest** when the box is up
+  (consistent with §3's degradation rule).
+- **Honor reports & timers** stay fully deterministic and resolve **immediately** offline.
+
+"Offline you accrue; when she returns, accounts settle."
+
+## B6. Supervision modes
+
+A second axis (B1) describing how deeply the sub can be controlled right now. **Five modes:**
+
+| Mode | Meaning |
+|---|---|
+| **Full supervision** | Sub fully available; she may use him at her mercy, anytime. |
+| **Discreet supervision** | Family/kids around: only quiet, agreed, discreet toys/kinks; no noise. |
+| **Task mode** | Only tasks with **graceful fulfillment timers**; no expectation of immediate reaction. |
+| **Homeoffice** | A discreet variant flagged *working / in meetings*: can't react instantly; discreetly-usable toys/tasks only. |
+| **Vacation** | Pauses training for a period. |
+
+- **Set manually in v1.** A simple in-app mode switch. A **schedule + calendar view** (the file's
+  ask) is **deferred** to a later milestone.
+- **Deterministic content filter (works offline).** Toys carry **discreetness flags**
+  (noise / visibility); every generated task carries an **intensity + discreetness profile +
+  required toys**. The active mode is a filter the drone engine *and* the live Mistress apply when
+  selecting tasks/punishments. Each mode also has a free-text **"what's possible right now"** note
+  the sub writes, so she/the drones understand the constraints (per the file's *"explained by the
+  sub"*).
+- **Mode × economy:** **Vacation freezes the economy** — no task drops, **no merit decay, no debt
+  accrual** while active. All other modes **only filter content**; merit/debt/token stakes are
+  unchanged across full/discreet/task/homeoffice.
+- **Mode is a consent/comfort control (§9):** lowering control depth, or entering vacation, is
+  honored **immediately**, like lowering a limit.
+
+## B7. Economy revision — three quantities
+
+The economy now runs on **three distinct quantities**, each answering a different question:
+
+| | **MERIT** | **DEBT** | **TOKENS** |
+|---|---|---|---|
+| Answers | *Who you are to her now* (standing) | *What you owe* (unpaid penance) | *What you've banked* (reward purse) |
+| Direction | Bidirectional, fluid | Accrues on failure, cleared by penance | Earned in chunks, spent |
+| Driven by | On-time honest obedience ↑ / misses & fails ↓ | A miss/fail issues a punishment → debt ↑ | Granted for *exceptional* obedience |
+| Controls | Disposition tone (§5) + **audience eligibility & type** (B8) | Offline drone pressure + the **reckoning** audience's substance | Comforts, privileges, and a **pleasurable audience** |
+
+**Punishment system = a debt ledger** (generalizing the old denial timer). A miss/fail drops merit
+**and** the discipline unit issues a punishment from the punishment pool — a **denial-timer
+extension, mandatory penance task, lines/writing, privilege lock, or token confiscation** — logged
+as a line item that adds to a persistent **debt balance**.
+
+**Clearing debt:**
+- **Penance** — serve the punishment with proof. This is the primary path.
+- **Token buy-down** — she will *occasionally* let the sub spend tokens to buy debt down, at a
+  **deliberately punishing exchange rate**. Escapes debt but earns **no merit**.
+
+**Penance × merit (manner of submission matters):** penance served **promptly and honestly** grants
+a **small merit recovery**; penance that is dodged, late, or token-bought-down clears the debt with
+**no merit gain** (or a further ding). The original miss's merit hit stands regardless.
+
+All three quantities remain enforced by the single economy service (merit bounded, tokens never
+negative, **debt never negative**, atomic transactions).
+
+## B8. Live audience lifecycle
+
+A deliberate ritual, available only when the box is up.
+
+1. **Eligibility & price** — gated by **merit band** (eligibility & type) and **tokens** (the price
+   to open the door). A pleasurable audience requires good standing **and** saved tokens.
+2. **Settle on entry** — the vision model judges queued media proof and Graphiti ingests queued
+   episodes; the resulting merit/debt changes apply. *"She reviews what you've done since."*
+3. **Type by merit** — **low merit → a reckoning** (she works the debt backlog personally);
+   **high merit → pleasurable / rewarding.** This rides the existing merit→disposition engine (§5).
+4. **The session** — the existing built chat experience (persona engine, tool-cards), now also
+   **bounded by the active supervision mode** as well as limits and the intensity ceiling.
+5. **Close** — she dictates fresh **standing orders** (B4) and the agent **regenerates the offline
+   pools** while the box is still up, then she withdraws to offline.
+
+## B9. Safety under offline & modes
+
+Offline-first makes "**works even if the LLM is down**" the *normal* operating case, strengthening
+§9 rather than changing it.
+
+- Safeword/panic, limit enforcement, intensity ceiling, well-being controls, and delete-everything
+  are all deterministic and **fully functional offline**. **The drones never gate safety.**
+- **Supervision mode is itself a consent control:** lowering control depth or entering **vacation**
+  is honored immediately (B6), with **no merit penalty** (vacation freezes the economy).
+- The output filter and limit injection still apply to every live-audience turn; the deterministic
+  drone engine selects only mode- and limit-compliant content offline.
+
+## B10. Data-model deltas (forward-compatible)
+
+New / changed Postgres entities and fields (logic lands per milestone):
+
+- **Availability:** `llm_availability` state (offline/batch/audience) + last-heartbeat; the home-box
+  **agent** (separate deployable, outbound heartbeat + batch-job runner).
+- **Supervision mode:** `supervision_mode` (current) + per-mode **"what's possible"** note on the
+  profile. *(Schedule/calendar entities deferred.)*
+- **Toy:** discreetness flags (`noise`, `visibility`, `discreet_capable`).
+- **Task:** `intensity`, `discreetness`, `required_toy_ids`, a `punitive` flag, and a
+  **`pending_review`** proof state.
+- **Debt / punishment:** a `debt` balance on the economy state + a `punishment` ledger
+  (line items: type, severity, stakes, status — issued/served/bought-down/expired).
+- **Batch artifacts:** storage for the task pool, drone line bank, punishment pool, and standing
+  orders (with freshness/depletion metadata).
+
+## B11. Build order — reframe built work as "session mode"
+
+The current build (live LLM chat, tool-cards, disposition, economy) is retained as the **live
+audience** experience. Milestones replan **forward** from there. Indicative order (the
+**writing-plans** step produces the authoritative breakdown):
+
+1. **Availability** — `llm_availability` state + the home-box heartbeat agent; gate live chat on it.
+2. **Drone engine + offline surface** — duty units, the standing-orders dossier, dimmed chat.
+3. **Batch generation** — the four artifacts + standing orders at audience close.
+4. **Debt / punishment system** — three-quantity economy, ledger, penance, token buy-down.
+5. **Supervision modes** — manual switch, discreetness tagging on toys/tasks, vacation freeze.
+6. **Queued proof & memory** — settle-on-entry at batch/audience.
+7. *(Deferred)* mode **schedule + calendar view**.
+
+## Addendum B Decision Log
+
+- Premise = **offline-first**: VPS 24/7, LLM on an intermittent home box → **"the Mistress is
+  away; her drones serve; an audience is earned."** Built work becomes **session mode**.
+- **Two orthogonal axes:** her-presence (offline/batch/audience) × supervision mode
+  (full/discreet/task/homeoffice/vacation); both filter behavior; mode **binds her too**.
+- Connectivity = **home-box agent + outbound heartbeat** (NAT/dynamic-IP safe; VPS never reaches in).
+- Drones = **one cold functionary register, split by duty unit**; offline surface = **dossier +
+  structured controls**, freeform chat dimmed.
+- Batch layer = **task pool + drone line bank + punishment pool + standing orders**; refill-when-low.
+- Rhythm = **offline accrues / online settles**: media proof **queued for review**, memory queued.
+- Economy = **three quantities** (merit / debt / tokens); denial timer generalized into a
+  **punishment debt ledger**; cleared by **penance** or **token buy-down** (no merit); honest prompt
+  penance gives a **small merit recovery**.
+- Live audience = **merit gates eligibility & type, tokens pay**; **settle backlog on entry**;
+  **low merit → reckoning, high merit → pleasurable**; close dictates **standing orders** + refills.
+- Supervision modes = **manual in v1** (schedule deferred); **vacation freezes the economy**, other
+  modes **only filter**; discreetness modeled as **flags on toys + a profile on tasks**.
+- Safety = **unchanged and reinforced**; drones never gate safety; mode is a consent control honored
+  immediately.
