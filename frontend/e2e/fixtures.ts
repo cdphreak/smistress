@@ -37,6 +37,10 @@ export async function mockApi(page: Page) {
     if (path.endsWith('/resume') && method === 'POST') return json(SAFE_OK);
     if (path.endsWith('/safety') && method === 'GET') return json(SAFE_OK);
     if (path.endsWith('/hiatus') && method === 'POST') return json({ ...SAFE_OK, on_hiatus: true });
+    if (path.endsWith('/api/llm/availability') && method === 'GET')
+      return json({ state: 'online', online: true, last_heartbeat_at: 'now' });
+    if (path.endsWith('/standing-orders') && method === 'GET')
+      return json({ notices: [{ unit: 'assignment', line: 'No standing assignment. Await Mistress.' }] });
     if (path.endsWith('/messages') && method === 'GET') return json([]);
     if (path.endsWith('/chat') && method === 'POST') {
       const body = req.postDataJSON() as { content: string };
