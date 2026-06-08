@@ -10,7 +10,7 @@ from app.config import Settings
 from app.db.enums import LLMAvailability
 from app.db.models.availability import LlmHeartbeat
 
-# Re-declared here (not imported from app.main) to avoid an import cycle.
+# Module-level Settings instance, matching the convention in db/session.py and app/api/*.py.
 _settings = Settings()
 
 
