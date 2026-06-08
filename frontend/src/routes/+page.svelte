@@ -4,11 +4,15 @@
   import { session } from '$lib/stores/session.svelte';
   import { chat } from '$lib/stores/chat.svelte';
   import { dossier } from '$lib/stores/dossier.svelte';
+  import { availability } from '$lib/stores/availability.svelte';
+  import { drones } from '$lib/stores/drones.svelte';
   import { safety } from '$lib/stores/safety.svelte';
   import { isSafeword } from '$lib/safety/phrases';
+  import { ApiError } from '$lib/api/client';
   import Bubble from '$lib/design/components/Bubble.svelte';
   import ActionCard from '$lib/chat/ActionCard.svelte';
   import DossierBar from '$lib/chat/DossierBar.svelte';
+  import StandingOrders from '$lib/offline/StandingOrders.svelte';
 
   let draft = $state('');
 
@@ -17,7 +21,10 @@
       await goto('/onboarding/consent');
       return;
     }
-    await Promise.all([chat.load(), dossier.refresh()]);
+    await availability.refresh();
+    await dossier.refresh();
+    if (availability.online) await chat.load();
+    else await drones.refresh();
   });
 
   async function send() {
@@ -29,8 +36,18 @@
       await safety.confirmStop();
       return;
     }
-    await chat.send(text);
-    await dossier.refresh(); // her reply may have shifted standing
+    try {
+      await chat.send(text);
+      await dossier.refresh(); // her reply may have shifted standing
+    } catch (e) {
+      // She went offline mid-session (M1 gate -> 503): drop to the drone surface.
+      if (e instanceof ApiError && e.status === 503) {
+        availability.setOffline();
+        await drones.refresh();
+      } else {
+        throw e;
+      }
+    }
   }
 
   function onKey(e: KeyboardEvent) {
@@ -44,28 +61,37 @@
 <div class="home">
   <DossierBar data={dossier.data} />
 
-  <main class="stream">
-    {#each chat.messages as m (m.id)}
-      <Bubble role={m.role} content={m.content} />
-      {#if m.action}
-        <ActionCard action={m.action} />
+  {#if availability.online}
+    <main class="stream">
+      {#each chat.messages as m (m.id)}
+        <Bubble role={m.role} content={m.content} />
+        {#if m.action}
+          <ActionCard action={m.action} />
+        {/if}
+      {/each}
+      {#if chat.messages.length === 0}
+        <p class="empty label">She is waiting. Say something.</p>
       {/if}
-    {/each}
-    {#if chat.messages.length === 0}
-      <p class="empty label">She is waiting. Say something.</p>
-    {/if}
-  </main>
+    </main>
 
-  <footer class="composer">
-    <textarea
-      placeholder="Say something to her…"
-      value={draft}
-      oninput={(e) => (draft = (e.currentTarget as HTMLTextAreaElement).value)}
-      onkeydown={onKey}
-      rows="2"
-    ></textarea>
-    <button class="send" disabled={chat.sending} onclick={send}>Send</button>
-  </footer>
+    <footer class="composer">
+      <textarea
+        placeholder="Say something to her…"
+        value={draft}
+        oninput={(e) => (draft = (e.currentTarget as HTMLTextAreaElement).value)}
+        onkeydown={onKey}
+        rows="2"
+      ></textarea>
+      <button class="send" disabled={chat.sending} onclick={send}>Send</button>
+    </footer>
+  {:else}
+    <main class="stream">
+      <StandingOrders notices={drones.notices} />
+    </main>
+    <footer class="composer away">
+      <p class="label">She is away — an audience requires her presence.</p>
+    </footer>
+  {/if}
 </div>
 
 <style>
@@ -96,6 +122,10 @@
     max-width: 720px;
     width: 100%;
     margin: 0 auto;
+  }
+  .composer.away {
+    justify-content: center;
+    color: var(--muted);
   }
   textarea {
     flex: 1;

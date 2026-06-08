@@ -20,7 +20,14 @@ vi.mock('$lib/api/dossier', () => ({
     denial_timers: 0
   }))
 }));
-// safety store hits the network on confirmStop; stub the api it calls
+vi.mock('$lib/api/availability', () => ({
+  getAvailability: vi.fn()
+}));
+vi.mock('$lib/api/drones', () => ({
+  getStandingOrders: vi.fn(async () => ({
+    notices: [{ unit: 'assignment', line: 'No standing assignment. Await Mistress.' }]
+  }))
+}));
 vi.mock('$lib/api/safety', () => ({
   safeword: vi.fn(async () => ({
     scene_halted: true,
@@ -36,13 +43,20 @@ vi.mock('$lib/api/safety', () => ({
 import Page from './+page.svelte';
 import { session } from '$lib/stores/session.svelte';
 import { chat } from '$lib/stores/chat.svelte';
+import { getAvailability } from '$lib/api/availability';
 
 beforeEach(() => {
   session.setProfileId('p1');
   chat.messages = [];
+  vi.clearAllMocks();
 });
 
-test('shows the dossier and sends a message', async () => {
+test('online: shows the dossier and sends a message', async () => {
+  (getAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({
+    state: 'online',
+    online: true,
+    last_heartbeat_at: 'now'
+  });
   render(Page);
   expect(await screen.findByText(/cool · exacting/)).toBeInTheDocument();
 
@@ -52,4 +66,17 @@ test('shows the dossier and sends a message', async () => {
   screen.getByRole('button', { name: /send/i }).click();
 
   expect(await screen.findByText('Acknowledged.')).toBeInTheDocument();
+});
+
+test('offline: shows drone standing orders and no chat composer', async () => {
+  (getAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({
+    state: 'offline',
+    online: false,
+    last_heartbeat_at: null
+  });
+  render(Page);
+  expect(await screen.findByText(/an audience requires her presence/i)).toBeInTheDocument();
+  expect(await screen.findByText(/no standing assignment/i)).toBeInTheDocument();
+  // the live composer is not rendered when she is away
+  expect(screen.queryByPlaceholderText(/say something/i)).toBeNull();
 });
