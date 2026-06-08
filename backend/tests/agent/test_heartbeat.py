@@ -59,3 +59,16 @@ async def test_run_once_skips_when_unreachable():
     )
     assert sent is False
     assert client.posts == []
+
+
+async def test_run_once_returns_false_when_post_fails():
+    client = _FakeClient(get_status=200, post_status=503)
+    sent = await heartbeat.run_once(
+        client,
+        llm_base_url="http://localhost:11434/v1",
+        vps_url="https://vps.example",
+        source="qwen",
+    )
+    assert sent is False
+    # it still attempted the POST
+    assert client.posts == [("https://vps.example/llm/heartbeat", {"source": "qwen"})]

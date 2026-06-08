@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import os
 import socket
 
@@ -35,7 +36,10 @@ async def run_once(
 ) -> bool:
     """One cycle: beat only if the local LLM is reachable. Returns True if a beat was sent."""
     if await llm_reachable(client, llm_base_url):
-        return await send_heartbeat(client, vps_url, source)
+        sent = await send_heartbeat(client, vps_url, source)
+        logging.info("heartbeat sent")
+        return sent
+    logging.debug("llm unreachable; skipping heartbeat")
     return False
 
 
@@ -44,9 +48,12 @@ async def run_forever(
 ) -> None:  # pragma: no cover - long-running loop
     async with httpx.AsyncClient() as client:
         while True:
-            await run_once(
-                client, llm_base_url=llm_base_url, vps_url=vps_url, source=source
-            )
+            try:
+                await run_once(
+                    client, llm_base_url=llm_base_url, vps_url=vps_url, source=source
+                )
+            except Exception:  # one bad cycle must not kill the agent
+                logging.exception("heartbeat cycle failed")
             await asyncio.sleep(interval)
 
 
@@ -70,6 +77,7 @@ def _parse_args() -> argparse.Namespace:  # pragma: no cover - thin CLI wrapper
 
 
 def main() -> None:  # pragma: no cover - process entrypoint
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = _parse_args()
     if not args.vps_url:
         raise SystemExit("set --vps-url or SMISTRESS_VPS_URL (e.g. https://your-vps)")
