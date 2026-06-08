@@ -18,6 +18,7 @@ async def client(session):
     )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://t") as ac:
+        await ac.post("/llm/heartbeat", json={"source": "test"})  # live-audience: online
         yield ac
     app.dependency_overrides.clear()
 
@@ -69,3 +70,22 @@ async def test_chat_returns_action_card(client):
     assert body["content"] == "Kneel."
     assert body["action"]["tool"] == "grant_tokens"
     assert body["action"]["amount"] == 2
+
+
+async def test_chat_blocked_when_llm_offline(session):
+    # A dedicated client that never sends a heartbeat -> the box is "away".
+    app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[chat_api.get_provider] = lambda: MockLLMProvider(
+        scripted=[ChatResult(content="should not be reached")]
+    )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://t") as ac:
+        r = await ac.post(
+            "/onboarding/profile",
+            json={"is_adult": True, "consent_acknowledged": True},
+        )
+        pid = r.json()["id"]
+        r = await ac.post(f"/profile/{pid}/chat", json={"content": "are you there?"})
+    app.dependency_overrides.clear()
+    assert r.status_code == 503
+    assert "away" in r.json()["detail"].lower()
