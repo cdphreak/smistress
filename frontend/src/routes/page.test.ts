@@ -17,7 +17,8 @@ vi.mock('$lib/api/dossier', () => ({
     tokens: 0,
     disposition: { band: 'cool', line: 'cool · exacting — no recent activity', reason: 'x', standing: 30 },
     active_task: null,
-    denial_timers: 0
+    debt: 0,
+    chastity: { locked: false, ends_at: null, seconds_remaining: 0 }
   }))
 }));
 vi.mock('$lib/api/availability', () => ({

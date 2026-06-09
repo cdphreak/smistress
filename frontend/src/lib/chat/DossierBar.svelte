@@ -9,13 +9,17 @@
     <span class="label">…</span>
   {:else}
     <button class="summary" onclick={() => (expanded = !expanded)}>
-      <span class="ledger">{data.rank} · merit {data.merit} · tokens {data.tokens}</span>
+      <span class="ledger">{data.rank} · merit {data.merit} · tokens {data.tokens} · debt {data.debt}</span>
       <span class="task">{data.active_task ? data.active_task.description : 'no active task'}</span>
     </button>
     <p class="disposition ledger">{data.disposition.line}</p>
     {#if expanded}
       <div class="expand">
-        <p class="ledger">denial timers: {data.denial_timers}</p>
+        <p class="ledger">
+          chastity: {data.chastity.locked
+            ? `locked · ${Math.floor(data.chastity.seconds_remaining / 3600)}h left`
+            : 'not locked'}
+        </p>
         <nav class="spokes">
           <a href="/profile">Sub Profile</a>
           <a href="/character">Character</a>

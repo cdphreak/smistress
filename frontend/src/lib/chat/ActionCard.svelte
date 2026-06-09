@@ -7,8 +7,8 @@
       ? 'Action failed'
       : action.tool === 'assign_task'
         ? 'Task assigned'
-        : action.tool === 'set_denial_timer'
-          ? 'Denial set'
+        : action.tool === 'set_chastity'
+          ? 'Chastity set'
           : action.tool === 'grant_tokens'
             ? 'Tokens granted'
             : 'Action'
@@ -21,7 +21,7 @@
     <p>She couldn’t: {action.error}</p>
   {:else if action.tool === 'assign_task'}
     <p class="ledger">{action.description} · proof: {action.proof} · +{action.merit_reward} merit</p>
-  {:else if action.tool === 'set_denial_timer'}
+  {:else if action.tool === 'set_chastity'}
     <p class="ledger">{action.hours}h{action.reason ? ` · ${action.reason}` : ''}</p>
   {:else if action.tool === 'grant_tokens'}
     <p class="ledger">+{action.amount} tokens{action.reason ? ` · ${action.reason}` : ''}</p>
