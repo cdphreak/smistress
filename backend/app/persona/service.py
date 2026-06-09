@@ -5,12 +5,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from datetime import datetime, timezone
-
 from app.db.enums import KinkRating, TaskStatus
-from app.db.models.economy import ChastityTimer, EconomyState
+from app.db.models.economy import EconomyState
 from app.db.models.profile import KinkEntry
 from app.db.models.task import Task
+from app.economy import service as econ_svc
 from app.llm.provider import LLMProvider
 from app.llm.types import ChatMessage, ChatResult
 from app.memory.store import MemoryStore, retrieve_memory
@@ -78,13 +77,7 @@ async def build_authoritative_state_block(session: AsyncSession, profile_id: uui
     econ = (await session.execute(
         select(EconomyState).where(EconomyState.profile_id == profile_id)
     )).scalar_one()
-    _now = datetime.now(timezone.utc)
-    chastity_row = (await session.execute(
-        select(ChastityTimer).where(ChastityTimer.profile_id == profile_id)
-    )).scalar_one_or_none()
-    chastity_locked = bool(
-        chastity_row and chastity_row.ends_at is not None and chastity_row.ends_at > _now
-    )
+    chastity = await econ_svc.chastity_status(session, profile_id)
     active_task = (await session.execute(
         select(Task)
         .where(Task.profile_id == profile_id, Task.status.in_(_ACTIVE))
@@ -95,8 +88,11 @@ async def build_authoritative_state_block(session: AsyncSession, profile_id: uui
     lines = [
         f"HARD LIMITS (never cross): {', '.join(hard) if hard else 'none recorded'}",
         f"SOFT LIMITS (approach with care): {', '.join(soft) if soft else 'none recorded'}",
-        f"MERIT: {econ.merit} | RANK: {econ.rank} | TOKENS: {econ.tokens}",
-        f"CHASTITY LOCKED: {'yes' if chastity_locked else 'no'}",
+        f"MERIT: {econ.merit} | RANK: {econ.rank} | TOKENS: {econ.tokens} | DEBT: {econ.debt}",
+        (
+            f"CHASTITY: locked, {chastity.seconds_remaining // 3600}h remaining"
+            if chastity.locked else "CHASTITY: not locked"
+        ),
     ]
     if active_task is not None:
         lines.append(
