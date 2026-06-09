@@ -74,6 +74,7 @@ async def test_generate_skips_malformed_items(session):
     provider = MockLLMProvider(scripted=[bad])
     result = await batch_svc.generate_batch(session, p.id, provider)
     assert result.tasks_added == 1
+    assert result.lines_added == 1  # the one valid line parses through the same path
 
 
 async def test_generate_handles_non_json_gracefully(session):

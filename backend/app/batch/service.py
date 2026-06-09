@@ -130,7 +130,7 @@ class _TaskGen(BaseModel):
     merit_miss_penalty: int = 0
     difficulty: str = "standard"
 
-    @field_validator("proof", mode="before")
+    @field_validator("proof", "difficulty", mode="before")
     @classmethod
     def _lower(cls, v: object) -> object:
         return str(v).strip().lower() if v is not None else v
@@ -142,6 +142,13 @@ class _LineGen(BaseModel):
     text: str
     merit_band: str = "any"
     time_of_day: str = "any"
+
+    # Normalise before the membership checks so capitalised model output
+    # (e.g. "Assignment", "Mid") is accepted rather than silently dropped.
+    @field_validator("unit", "merit_band", "time_of_day", mode="before")
+    @classmethod
+    def _lower(cls, v: object) -> object:
+        return str(v).strip().lower() if v is not None else v
 
     @field_validator("unit")
     @classmethod
@@ -264,5 +271,10 @@ async def generate_batch(
         ))
         added_lines += 1
     await session.flush()
-    after = await pool_status(session, profile_id)
-    return GenerateResult(added_tasks, added_lines, after.task_pool, after.line_bank)
+    # Post-run totals are the pre-run counts plus what we just added — no re-query.
+    return GenerateResult(
+        added_tasks,
+        added_lines,
+        status.task_pool + added_tasks,
+        status.line_bank + added_lines,
+    )

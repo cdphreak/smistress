@@ -2,9 +2,7 @@ from datetime import datetime, timezone
 
 from app.batch import service as batch_svc
 from app.db.enums import ProofRequirement
-from app.db.models.batch import DroneLine
-from app.db.models.batch import DroneLine as _DL
-from app.db.models.batch import TaskPoolItem
+from app.db.models.batch import DroneLine, TaskPoolItem
 from app.schemas.onboarding import ProfileCreate
 from app.services import profile as profile_svc
 
@@ -69,7 +67,7 @@ def test_time_of_day_buckets():
 
 
 def _line(event, band, tod, text):
-    return _DL(unit="assignment", event=event, merit_band=band, time_of_day=tod, text=text)
+    return DroneLine(unit="assignment", event=event, merit_band=band, time_of_day=tod, text=text)
 
 
 def test_pick_line_prefers_exact_band_and_tod():
