@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     falkordb_url: str = "redis://localhost:6379"
     graphiti_enabled: bool = False  # off -> NullMemoryStore; no FalkorDB/LLM needed
     heartbeat_ttl_seconds: int = 90  # online iff last heartbeat is fresher than this
+    batch_task_target: int = 8  # top the task pool up to this many unconsumed items
+    batch_task_low: int = 2  # at/below this, the reminder unit asks for a batch window
+    batch_line_target: int = 24  # top the drone line bank up to this many lines
+    batch_line_low: int = 6
     embedding_model: str = "nomic-embed-text"  # local default (Ollama); OpenAI: text-embedding-3-small
     embedding_dim: int = 768  # nomic-embed-text dim; text-embedding-3-small = 1536
     falkordb_host: str = "localhost"

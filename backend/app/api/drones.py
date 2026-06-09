@@ -23,6 +23,9 @@ async def standing_orders(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"profile {profile_id} not found"
         )
+    # standing_orders' assignment unit may have drawn a pooled task (a state
+    # mutation); commit unconditionally — a no-op when nothing changed.
+    await session.commit()
     return StandingOrdersOut(
         notices=[DroneNoticeOut(unit=n.unit, line=n.line) for n in notices]
     )
