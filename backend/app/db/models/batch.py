@@ -52,7 +52,9 @@ class DroneLine(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sub_profile.id"))
 
-    unit: Mapped[str] = mapped_column(String)  # "assignment" | "reminder"
+    # "assignment" | "reminder" — informational only; the drone engine routes
+    # lines by `event`, not by unit (pick_line does not filter on unit).
+    unit: Mapped[str] = mapped_column(String)
     event: Mapped[str] = mapped_column(String)  # "task_drop" | "no_task" | "batch_window"
     merit_band: Mapped[str] = mapped_column(String, default="any")  # low|mid|high|any
     time_of_day: Mapped[str] = mapped_column(String, default="any")  # morning|day|evening|night|any

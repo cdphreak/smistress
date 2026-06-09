@@ -83,7 +83,7 @@ def pick_line(
     hardcoded line so the drones always speak).
     """
     scored = [(line, _score(line, band, tod)) for line in lines if line.event == event]
-    scored = [(line, s) for line, s in scored if s >= 0]
+    scored = [(line, s) for line, s in scored if s >= 0]  # _score is either -1 or >= 2
     if not scored:
         return None
     best = max(s for _, s in scored)
@@ -286,7 +286,8 @@ async def _next_pool_item(session: AsyncSession, profile_id: uuid.UUID) -> TaskP
     return (await session.execute(
         select(TaskPoolItem)
         .where(TaskPoolItem.profile_id == profile_id, TaskPoolItem.consumed.is_(False))
-        .order_by(TaskPoolItem.created_at)
+        # id tiebreak: items from one generate_batch share created_at (server now()).
+        .order_by(TaskPoolItem.created_at, TaskPoolItem.id)
         .limit(1)
     )).scalars().first()
 
@@ -298,6 +299,8 @@ async def draw_and_assign(session: AsyncSession, profile_id: uuid.UUID) -> Task 
     item = await _next_pool_item(session, profile_id)
     if item is None:
         return None
+    # NB: item.difficulty is retained on the pool row for future use; Task carries
+    # no difficulty column yet, so it is intentionally not propagated here.
     task = await loop_svc.assign_task(
         session,
         profile_id,

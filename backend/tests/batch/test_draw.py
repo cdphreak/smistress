@@ -28,6 +28,7 @@ async def test_draw_materializes_a_task_and_consumes_the_item(session):
     assert task.description == "Kneel and breathe, five minutes."
     assert task.status is TaskStatus.ASSIGNED
     assert task.merit_reward == 6
+    assert task.proof_requirement is ProofRequirement.TIMER  # enum survives the round-trip
 
     item = (await session.execute(select(TaskPoolItem))).scalar_one()
     assert item.consumed is True

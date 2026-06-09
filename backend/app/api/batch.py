@@ -24,7 +24,7 @@ async def generate_batch(
 ) -> GenerateBatchOut:
     try:
         result = await batch_svc.generate_batch(session, profile_id, provider)
-    except (profile_svc.ProfileNotFound, batch_svc.ProfileNotFound):
+    except batch_svc.ProfileNotFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"profile {profile_id} not found"
         )
