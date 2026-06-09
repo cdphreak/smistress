@@ -14,6 +14,7 @@ from app.db.models.punishment import Punishment
 from app.db.models.task import Task
 from app.economy import service as econ_svc
 from app.economy.service import ChastityStatus
+from app.supervision import service as sup_svc
 from app.services import profile as profile_svc
 
 # Task statuses that count as a live, outstanding assignment (mirrors app.chat.service).
@@ -132,8 +133,9 @@ async def standing_orders(
     now = now or datetime.now(timezone.utc)
     await profile_svc.get_profile(session, profile_id)  # raises ProfileNotFound
 
+    frozen = await sup_svc.economy_frozen(session, profile_id)
     task = await _active_task(session, profile_id)
-    if task is None:
+    if task is None and not frozen:
         # The assignment unit drops the day's task from the pool (if any).
         task = await batch_svc.draw_and_assign(session, profile_id)
 
@@ -161,6 +163,14 @@ async def standing_orders(
         DroneNotice(unit="discipline", line=line)
         for line in _discipline_lines(econ.debt, outstanding)
     ]
+
+    if frozen:
+        # Vacation: training is paused (B6). No task drops, no batch-window prompt.
+        notices.append(DroneNotice(
+            unit="reminder",
+            line="Training is paused (vacation). Rest — nothing counts against you.",
+        ))
+        return notices
 
     status = await batch_svc.pool_status(session, profile_id)
     if status.task_pool_low or status.line_bank_low or status.punishment_pool_low:

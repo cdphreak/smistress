@@ -87,3 +87,14 @@ class PunishmentStatus(str, enum.Enum):
     SERVED = "served"  # penance completed (debt cleared via the task loop)
     BOUGHT_DOWN = "bought_down"  # cleared by spending tokens (no merit)
     EXPIRED = "expired"  # reserved for a future sweep; unused in M4a
+
+
+class SupervisionMode(str, enum.Enum):
+    """How deeply the sub can be controlled right now (Addendum B6). Set manually;
+    binds both the drones and the live Mistress. Vacation freezes the economy."""
+
+    FULL = "full"  # fully available, at her mercy anytime
+    DISCREET = "discreet"  # family/kids around: only quiet, discreet content
+    TASK = "task"  # only tasks with graceful fulfillment timers
+    HOMEOFFICE = "homeoffice"  # working/meetings: discreetly-usable content only
+    VACATION = "vacation"  # training paused; economy frozen
