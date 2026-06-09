@@ -7,9 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.db.enums import ProofRequirement, TaskStatus
+from app.db.enums import ProofRequirement, PunishmentType, TaskStatus
 from app.db.models.loop import Proof, TaskTimer
 from app.db.models.task import Task
+from app.discipline import service as disc_svc
 from app.economy import service as econ_svc
 from app.llm.provider import LLMProvider
 from app.loop import verification
@@ -31,6 +32,25 @@ async def _get_task(session: AsyncSession, task_id: uuid.UUID) -> Task:
     if task is None:
         raise TaskNotFound(str(task_id))
     return task
+
+
+# Default automatic consequence for a miss/fail until the generated punishment
+# pool + deterministic selection lands (M4b). Severity scales with the offence.
+_AUTO_PUNISHMENT_TYPE = PunishmentType.CHASTITY_EXTENSION
+
+
+async def apply_terminal_discipline(session: AsyncSession, task: Task) -> None:
+    """At a terminal task status, run the discipline unit (Addendum B7):
+    PASS settles a linked penance; FAIL/MISS issues a punishment (debt accrues)."""
+    if task.status is TaskStatus.VERIFIED_PASS:
+        await disc_svc.settle_penance(session, task)
+    elif task.status in (TaskStatus.VERIFIED_FAIL, TaskStatus.MISSED):
+        severity = 2 if task.status is TaskStatus.VERIFIED_FAIL else 1
+        await disc_svc.issue_punishment(
+            session, task.profile_id, type=_AUTO_PUNISHMENT_TYPE, severity=severity,
+            reason=f"{task.status.value}: {task.description}",
+        )
+    await session.flush()
 
 
 async def assign_task(
@@ -101,6 +121,7 @@ async def sweep_missed(session: AsyncSession, profile_id: uuid.UUID | None = Non
         task.status = TaskStatus.MISSED
         await session.flush()  # ensure status is set before applying the outcome
         await econ_svc.apply_task_outcome(session, task)
+        await apply_terminal_discipline(session, task)
         await mem_svc.enqueue_episode(
             session,
             task.profile_id,
@@ -183,6 +204,7 @@ async def verify_task(
 
     if task.status in (TaskStatus.VERIFIED_PASS, TaskStatus.VERIFIED_FAIL):
         await econ_svc.apply_task_outcome(session, task)
+        await apply_terminal_discipline(session, task)
     await mem_svc.enqueue_episode(
         session,
         task.profile_id,
