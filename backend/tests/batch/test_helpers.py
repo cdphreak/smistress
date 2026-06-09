@@ -1,5 +1,10 @@
+from datetime import datetime, timezone
+
+from app.batch import service as batch_svc
 from app.db.enums import ProofRequirement
-from app.db.models.batch import DroneLine, TaskPoolItem
+from app.db.models.batch import DroneLine
+from app.db.models.batch import DroneLine as _DL
+from app.db.models.batch import TaskPoolItem
 from app.schemas.onboarding import ProfileCreate
 from app.services import profile as profile_svc
 
@@ -44,12 +49,6 @@ async def test_drone_line_round_trip(session):
     await session.refresh(line)
     assert "{task}" in line.text
     assert line.merit_band == "mid"
-
-
-from datetime import datetime, timezone
-
-from app.batch import service as batch_svc
-from app.db.models.batch import DroneLine as _DL
 
 
 def test_merit_band_thresholds():

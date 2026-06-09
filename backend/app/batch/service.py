@@ -177,14 +177,16 @@ def parse_batch(content: str) -> tuple[list[_TaskGen], list[_LineGen]]:
         return [], []
     if not isinstance(data, dict):
         return [], []
+    raw_tasks = data.get("tasks")
+    raw_lines = data.get("lines")
     tasks: list[_TaskGen] = []
-    for raw in data.get("tasks", []) or []:
+    for raw in raw_tasks if isinstance(raw_tasks, list) else []:
         try:
             tasks.append(_TaskGen.model_validate(raw))
         except ValidationError:
             continue
     lines: list[_LineGen] = []
-    for raw in data.get("lines", []) or []:
+    for raw in raw_lines if isinstance(raw_lines, list) else []:
         try:
             lines.append(_LineGen.model_validate(raw))
         except ValidationError:

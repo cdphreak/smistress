@@ -43,6 +43,10 @@ async def test_generate_persists_parsed_artifacts(session):
         select(func.count()).select_from(TaskPoolItem).where(TaskPoolItem.profile_id == p.id)
     )).scalar_one()
     assert tasks == 3
+    lines = (await session.execute(
+        select(func.count()).select_from(DroneLine).where(DroneLine.profile_id == p.id)
+    )).scalar_one()
+    assert lines == 4
 
 
 async def test_generate_tops_up_only_to_target(session):
@@ -75,6 +79,16 @@ async def test_generate_skips_malformed_items(session):
 async def test_generate_handles_non_json_gracefully(session):
     p = await _profile(session)
     provider = MockLLMProvider(scripted=[ChatResult(content="I am away; no JSON here.")])
+    result = await batch_svc.generate_batch(session, p.id, provider)
+    assert result.tasks_added == 0
+    assert result.lines_added == 0
+
+
+async def test_generate_handles_non_list_collections_gracefully(session):
+    # A malformed model reply where tasks/lines are not arrays must not raise.
+    p = await _profile(session)
+    bad = ChatResult(content=json.dumps({"tasks": 42, "lines": "nope"}))
+    provider = MockLLMProvider(scripted=[bad])
     result = await batch_svc.generate_batch(session, p.id, provider)
     assert result.tasks_added == 0
     assert result.lines_added == 0
