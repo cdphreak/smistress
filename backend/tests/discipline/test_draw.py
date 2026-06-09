@@ -1,11 +1,9 @@
-from app.db.enums import PunishmentStatus, PunishmentType
+from app.db.enums import PunishmentType
 from app.db.models.batch import PunishmentPoolItem
-from app.db.models.punishment import Punishment
 from app.discipline import service as disc_svc
 from app.economy import service as econ_svc
 from app.schemas.onboarding import ProfileCreate
 from app.services import profile as profile_svc
-from sqlalchemy import select
 
 
 async def _profile(session):
