@@ -97,7 +97,7 @@ async def test_reminder_notice_for_deadline_due_soon(session):
     assert any("due within the day" in n.line.lower() for n in reminders)
 
 
-async def test_no_reminder_when_no_timers_or_deadline(session):
+async def test_no_state_reminder_when_no_timers_or_deadline(session):
     p = await _profile(session)
     session.add(
         Task(
@@ -109,4 +109,52 @@ async def test_no_reminder_when_no_timers_or_deadline(session):
     )
     await session.flush()
     notices = await drone_svc.standing_orders(session, p.id)
-    assert [n for n in notices if n.unit == "reminder"] == []
+    reminders = [n for n in notices if n.unit == "reminder"]
+    # denial/deadline reminders are absent; only the (empty-pool) batch-window prompt may remain
+    assert all("denial" not in n.line.lower() for n in reminders)
+    assert all("deadline" not in n.line.lower() for n in reminders)
+
+
+async def test_bank_line_used_for_task_drop_when_available(session):
+    from app.db.models.batch import DroneLine
+
+    p = await _profile(session)
+    session.add(
+        Task(
+            profile_id=p.id, description="Posture drill",
+            proof_requirement=ProofRequirement.HONOR, status=TaskStatus.ASSIGNED,
+        )
+    )
+    session.add(DroneLine(
+        profile_id=p.id, unit="assignment", event="task_drop",
+        merit_band="any", time_of_day="any", text="DRONE-7 logs your charge: {task}.",
+    ))
+    await session.flush()
+    notices = await drone_svc.standing_orders(session, p.id)
+    assignment = [n for n in notices if n.unit == "assignment"][0]
+    assert assignment.line == "DRONE-7 logs your charge: Posture drill."
+
+
+async def test_assignment_unit_drops_a_pooled_task_when_none_active(session):
+    from app.db.models.batch import TaskPoolItem
+    from app.db.models.task import Task as TaskModel
+    from sqlalchemy import select
+
+    p = await _profile(session)
+    session.add(TaskPoolItem(
+        profile_id=p.id, description="Drawn drill", proof_requirement=ProofRequirement.HONOR,
+        merit_reward=5,
+    ))
+    await session.flush()
+    notices = await drone_svc.standing_orders(session, p.id)
+    assignment = [n for n in notices if n.unit == "assignment"][0]
+    assert "Drawn drill" in assignment.line
+    task = (await session.execute(select(TaskModel))).scalar_one()
+    assert task.status is TaskStatus.ASSIGNED
+
+
+async def test_batch_window_reminder_when_pool_low(session):
+    p = await _profile(session)
+    notices = await drone_svc.standing_orders(session, p.id)
+    reminders = [n for n in notices if n.unit == "reminder"]
+    assert any("batch window" in n.line.lower() for n in reminders)
