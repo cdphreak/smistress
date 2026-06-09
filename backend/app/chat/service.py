@@ -97,6 +97,4 @@ async def build_dossier(session: AsyncSession, profile_id: uuid.UUID) -> dict:
             "ends_at": chastity.ends_at.isoformat() if chastity.ends_at else None,
             "seconds_remaining": chastity.seconds_remaining,
         },
-        # compat: existing frontend reads denial_timers as a count (M4b relabels).
-        "denial_timers": 1 if chastity.locked else 0,
     }

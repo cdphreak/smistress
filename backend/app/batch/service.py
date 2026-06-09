@@ -13,8 +13,8 @@ from sqlalchemy.orm import selectinload
 
 from app.batch.prompt import build_generation_prompt
 from app.config import Settings
-from app.db.enums import ProofRequirement
-from app.db.models.batch import DroneLine, TaskPoolItem
+from app.db.enums import ProofRequirement, PunishmentType
+from app.db.models.batch import DroneLine, PunishmentPoolItem, TaskPoolItem
 from app.db.models.character import CharacterModel
 from app.db.models.economy import EconomyState
 from app.db.models.profile import SubProfile
@@ -95,8 +95,10 @@ def pick_line(
 class PoolStatus:
     task_pool: int  # unconsumed task pool items
     line_bank: int  # total drone lines
+    punishment_pool: int  # unconsumed punishment pool items
     task_pool_low: bool
     line_bank_low: bool
+    punishment_pool_low: bool
 
 
 async def pool_status(session: AsyncSession, profile_id: uuid.UUID) -> PoolStatus:
@@ -108,11 +110,17 @@ async def pool_status(session: AsyncSession, profile_id: uuid.UUID) -> PoolStatu
     lines = (await session.execute(
         select(func.count()).select_from(DroneLine).where(DroneLine.profile_id == profile_id)
     )).scalar_one()
+    punishments = (await session.execute(
+        select(func.count()).select_from(PunishmentPoolItem)
+        .where(PunishmentPoolItem.profile_id == profile_id, PunishmentPoolItem.consumed.is_(False))
+    )).scalar_one()
     return PoolStatus(
         task_pool=tasks,
         line_bank=lines,
+        punishment_pool=punishments,
         task_pool_low=tasks <= _settings.batch_task_low,
         line_bank_low=lines <= _settings.batch_line_low,
+        punishment_pool_low=punishments <= _settings.batch_punishment_low,
     )
 
 
@@ -174,18 +182,46 @@ class _LineGen(BaseModel):
         return v
 
 
-def parse_batch(content: str) -> tuple[list[_TaskGen], list[_LineGen]]:
+_VALID_PUN_TYPES = {"penance_task", "chastity_extension", "token_confiscation"}
+
+
+class _PunishmentGen(BaseModel):
+    type: str
+    severity: int
+    reason: str
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _lower(cls, v: object) -> object:
+        return str(v).strip().lower() if v is not None else v
+
+    @field_validator("type")
+    @classmethod
+    def _type(cls, v: str) -> str:
+        if v not in _VALID_PUN_TYPES:
+            raise ValueError("bad punishment type")
+        return v
+
+    @field_validator("severity")
+    @classmethod
+    def _sev(cls, v: int) -> int:
+        if v not in (1, 2, 3):
+            raise ValueError("bad severity")
+        return v
+
+
+def parse_batch(content: str) -> tuple[list[_TaskGen], list[_LineGen], list[_PunishmentGen]]:
     """Best-effort parse of the model's reply. Malformed JSON or invalid items are
     skipped (never raises) so a bad generation simply adds nothing."""
     match = _JSON_RE.search(content)
     if not match:
-        return [], []
+        return [], [], []
     try:
         data = json.loads(match.group(0))
     except json.JSONDecodeError:
-        return [], []
+        return [], [], []
     if not isinstance(data, dict):
-        return [], []
+        return [], [], []
     raw_tasks = data.get("tasks")
     raw_lines = data.get("lines")
     tasks: list[_TaskGen] = []
@@ -200,15 +236,24 @@ def parse_batch(content: str) -> tuple[list[_TaskGen], list[_LineGen]]:
             lines.append(_LineGen.model_validate(raw))
         except ValidationError:
             continue
-    return tasks, lines
+    raw_punishments = data.get("punishments")
+    punishments: list[_PunishmentGen] = []
+    for raw in raw_punishments if isinstance(raw_punishments, list) else []:
+        try:
+            punishments.append(_PunishmentGen.model_validate(raw))
+        except ValidationError:
+            continue
+    return tasks, lines, punishments
 
 
 @dataclass
 class GenerateResult:
     tasks_added: int
     lines_added: int
+    punishments_added: int
     task_pool: int  # unconsumed total after the run
     line_bank: int  # total after the run
+    punishment_pool: int  # unconsumed total after the run
 
 
 async def _profile_for_generation(
@@ -242,12 +287,14 @@ async def generate_batch(
     status = await pool_status(session, profile_id)
     want_tasks = max(0, _settings.batch_task_target - status.task_pool)
     want_lines = max(0, _settings.batch_line_target - status.line_bank)
+    want_punishments = max(0, _settings.batch_punishment_target - status.punishment_pool)
 
     messages = build_generation_prompt(
-        profile, character, econ, task_count=want_tasks, line_count=want_lines
+        profile, character, econ,
+        task_count=want_tasks, line_count=want_lines, punishment_count=want_punishments,
     )
     reply = await provider.chat(messages)
-    parsed_tasks, parsed_lines = parse_batch(reply.content)
+    parsed_tasks, parsed_lines, parsed_punishments = parse_batch(reply.content)
 
     added_tasks = 0
     for gen in parsed_tasks[:want_tasks]:
@@ -272,13 +319,24 @@ async def generate_batch(
             text=gen.text,
         ))
         added_lines += 1
+    added_punishments = 0
+    for gen in parsed_punishments[:want_punishments]:
+        session.add(PunishmentPoolItem(
+            profile_id=profile_id,
+            type=PunishmentType(gen.type),
+            severity=gen.severity,
+            reason=gen.reason,
+        ))
+        added_punishments += 1
     await session.flush()
     # Post-run totals are the pre-run counts plus what we just added — no re-query.
     return GenerateResult(
         added_tasks,
         added_lines,
+        added_punishments,
         status.task_pool + added_tasks,
         status.line_bank + added_lines,
+        status.punishment_pool + added_punishments,
     )
 
 

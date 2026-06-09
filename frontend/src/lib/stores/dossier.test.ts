@@ -12,7 +12,8 @@ vi.mock('$lib/api/dossier', () => ({
       standing: 60
     },
     active_task: null,
-    denial_timers: 0
+    debt: 0,
+    chastity: { locked: false, ends_at: null, seconds_remaining: 0 }
   }))
 }));
 

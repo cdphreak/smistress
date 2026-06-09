@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     batch_task_low: int = 2  # at/below this, the reminder unit asks for a batch window
     batch_line_target: int = 24  # top the drone line bank up to this many lines
     batch_line_low: int = 6
+    batch_punishment_target: int = 6  # top the punishment pool up to this many unconsumed items
+    batch_punishment_low: int = 2
     # Debt / punishment tuning (Addendum B7). Severity 1 (light) .. 3 (heavy).
     debt_by_severity: dict[int, int] = Field(
         default_factory=lambda: {1: 5, 2: 15, 3: 40}

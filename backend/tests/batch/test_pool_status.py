@@ -20,6 +20,8 @@ async def test_pool_status_empty_is_low(session):
     assert status.line_bank == 0
     assert status.task_pool_low is True
     assert status.line_bank_low is True
+    assert status.punishment_pool == 0
+    assert status.punishment_pool_low is True
 
 
 async def test_pool_status_counts_only_unconsumed_tasks(session):

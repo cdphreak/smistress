@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.db.enums import TaskStatus
+from app.db.enums import PunishmentStatus, PunishmentType, TaskStatus
 from app.db.models.economy import ChastityTimer, EconomyState
+from app.db.models.punishment import Punishment
 from app.db.models.task import Task
 
 _settings = Settings()
@@ -201,11 +202,9 @@ async def buy_down_debt(
     session: AsyncSession, profile_id: uuid.UUID, *, debt_points: int
 ) -> EconomyState:
     """Spend tokens to clear debt at a punishing rate (no merit). Clears as much as
-    both the debt balance and the token purse allow. Caller commits.
-
-    Reduces the aggregate debt balance only; it does not yet resolve individual
-    Punishment ledger rows to BOUGHT_DOWN — per-line ledger resolution lands with
-    the discipline drone unit that surfaces the ledger (M4b)."""
+    both the debt balance and the token purse allow, and resolves whole ISSUED
+    punishment ledger rows to BOUGHT_DOWN (FIFO) up to the cleared amount. Caller
+    commits."""
     if debt_points < 0:
         raise ValueError("debt_points must be non-negative")
     econ = await get_economy(session, profile_id)
@@ -214,6 +213,23 @@ async def buy_down_debt(
     cleared = min(debt_points, econ.debt, affordable)
     econ.debt -= cleared
     econ.tokens -= cleared * rate
+
+    remaining = cleared
+    issued = (await session.execute(
+        select(Punishment).where(
+            Punishment.profile_id == profile_id,
+            Punishment.status == PunishmentStatus.ISSUED,
+        ).order_by(Punishment.created_at, Punishment.id)
+    )).scalars().all()
+    for pun in issued:
+        # Penance must be served, not bought — its task stays live; clearing the
+        # numeric debt does not cancel it (serving it later still recovers merit).
+        if pun.type is PunishmentType.PENANCE_TASK:
+            continue
+        if pun.debt_amount <= remaining:
+            pun.status = PunishmentStatus.BOUGHT_DOWN
+            pun.resolved_at = datetime.now(timezone.utc)
+            remaining -= pun.debt_amount
     await session.flush()
     return econ
 

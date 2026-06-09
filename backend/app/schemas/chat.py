@@ -45,4 +45,3 @@ class DossierOut(BaseModel):
     disposition: DispositionBlock
     active_task: ActiveTask | None
     chastity: ChastityBlock
-    denial_timers: int

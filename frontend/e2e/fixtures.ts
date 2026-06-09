@@ -59,7 +59,8 @@ export async function mockApi(page: Page) {
       return json({
         rank: 'novice', merit: 0, tokens: 0,
         disposition: { band: 'cool', line: 'cool · exacting — no recent activity', reason: 'x', standing: 30 },
-        active_task: null, denial_timers: 0
+        active_task: null, debt: 0,
+        chastity: { locked: false, ends_at: null, seconds_remaining: 0 }
       });
     // assembled profile GET (path ends with the bare profile id)
     if (/\/api\/profile\/[^/]+$/.test(path) && method === 'GET') return json(PROFILE);

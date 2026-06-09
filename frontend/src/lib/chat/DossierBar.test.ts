@@ -13,7 +13,8 @@ const data = {
     standing: 30
   },
   active_task: { description: 'Posture drill', status: 'assigned' },
-  denial_timers: 1
+  debt: 0,
+  chastity: { locked: false, ends_at: null, seconds_remaining: 0 }
 };
 
 test('shows rank, merit and the disposition line', () => {
