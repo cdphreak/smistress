@@ -16,6 +16,10 @@ def _payload():
         "tasks": [{"description": f"t{i}", "proof": "honor"} for i in range(3)],
         "lines": [{"unit": "assignment", "event": "task_drop", "text": "{task}"}
                   for _ in range(4)],
+        "punishments": [
+            {"type": "penance_task", "severity": 2, "reason": f"penance {i}"}
+            for i in range(3)
+        ],
     }))
 
 
@@ -53,6 +57,7 @@ async def test_generate_when_online_persists_and_returns_counts(client):
     body = r.json()
     assert body["tasks_added"] == 3
     assert body["lines_added"] == 4
+    assert body["punishments_added"] == 3
     s = await client.get(f"/profile/{pid}/batch/status")
     assert s.status_code == 200
     assert s.json()["task_pool"] == 3
@@ -63,6 +68,7 @@ async def test_status_reports_low_pools(client):
     r = await client.get(f"/profile/{pid}/batch/status")
     assert r.status_code == 200
     assert r.json()["task_pool_low"] is True
+    assert r.json()["punishment_pool_low"] is True
 
 
 async def test_generate_unknown_profile_404(client):

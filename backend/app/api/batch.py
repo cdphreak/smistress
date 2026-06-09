@@ -32,8 +32,10 @@ async def generate_batch(
     return GenerateBatchOut(
         tasks_added=result.tasks_added,
         lines_added=result.lines_added,
+        punishments_added=result.punishments_added,
         task_pool=result.task_pool,
         line_bank=result.line_bank,
+        punishment_pool=result.punishment_pool,
     )
 
 
@@ -51,6 +53,8 @@ async def batch_status(
     return PoolStatusOut(
         task_pool=s.task_pool,
         line_bank=s.line_bank,
+        punishment_pool=s.punishment_pool,
         task_pool_low=s.task_pool_low,
         line_bank_low=s.line_bank_low,
+        punishment_pool_low=s.punishment_pool_low,
     )

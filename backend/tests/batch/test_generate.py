@@ -18,7 +18,7 @@ async def _profile(session):
     return p
 
 
-def _payload(n_tasks=3, n_lines=4):
+def _payload(n_tasks=3, n_lines=4, n_punishments=3):
     return ChatResult(content=json.dumps({
         "tasks": [
             {"description": f"task {i}", "proof": "honor", "merit_reward": 5,
@@ -29,6 +29,10 @@ def _payload(n_tasks=3, n_lines=4):
             {"unit": "assignment", "event": "task_drop", "merit_band": "mid",
              "time_of_day": "any", "text": "Mistress has set you: {task}."}
             for _ in range(n_lines)
+        ],
+        "punishments": [
+            {"type": "penance_task", "severity": 2, "reason": f"penance {i}"}
+            for i in range(n_punishments)
         ],
     }))
 
@@ -47,6 +51,13 @@ async def test_generate_persists_parsed_artifacts(session):
         select(func.count()).select_from(DroneLine).where(DroneLine.profile_id == p.id)
     )).scalar_one()
     assert lines == 4
+    from app.db.models.batch import PunishmentPoolItem
+    punishments = (await session.execute(
+        select(func.count()).select_from(PunishmentPoolItem)
+        .where(PunishmentPoolItem.profile_id == p.id)
+    )).scalar_one()
+    assert punishments == 3
+    assert result.punishments_added == 3
 
 
 async def test_generate_tops_up_only_to_target(session):

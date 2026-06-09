@@ -17,11 +17,15 @@ _JSON_SCHEMA = (
     '    {"unit": "assignment"|"reminder", "event": "task_drop"|"no_task"|"batch_window",\n'
     '     "merit_band": "low"|"mid"|"high"|"any",\n'
     '     "time_of_day": "morning"|"day"|"evening"|"night"|"any", "text": str}\n'
+    '  ],\n'
+    '  "punishments": [\n'
+    '    {"type": "penance_task"|"chastity_extension"|"token_confiscation",\n'
+    '     "severity": 1|2|3, "reason": str}\n'
     '  ]\n'
     '}\n'
-    'For "task_drop" lines, include the literal placeholder {task} where the task '
-    'description belongs. Lines are cold, mechanical, impersonal drone announcements '
-    '(e.g. "Mistress has assigned: {task}. Report when complete."), never warm.'
+    'For "task_drop" lines, include the literal placeholder {task}. Lines and '
+    'punishment reasons are cold, mechanical, in-persona (never warm). A punishment '
+    '"reason" is the penance/consequence text (e.g. "Write 50 lines: ...").'
 )
 
 
@@ -51,6 +55,7 @@ def build_generation_prompt(
     *,
     task_count: int,
     line_count: int,
+    punishment_count: int,
 ) -> list[ChatMessage]:
     merit = econ.merit if econ is not None else 0
     system = (
@@ -62,7 +67,8 @@ def build_generation_prompt(
     user = (
         f"{_profile_brief(profile, character)}\n"
         f"Current merit: {merit} (band drives tone).\n\n"
-        f"Generate {task_count} task-pool items and {line_count} drone lines.\n\n"
+        f"Generate {task_count} task-pool items, {line_count} drone lines, and "
+        f"{punishment_count} punishments.\n\n"
         f"{_JSON_SCHEMA}"
     )
     return [ChatMessage(role="system", content=system), ChatMessage(role="user", content=user)]
