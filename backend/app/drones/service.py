@@ -4,14 +4,15 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.batch import service as batch_svc
-from app.db.enums import TaskStatus
+from app.db.enums import PunishmentStatus, PunishmentType, TaskStatus
 from app.db.models.batch import DroneLine
 from app.db.models.economy import EconomyState
 from app.economy.service import ChastityStatus
+from app.db.models.punishment import Punishment
 from app.db.models.task import Task
 from app.economy import service as econ_svc
 from app.services import profile as profile_svc
@@ -82,6 +83,28 @@ def _reminder_lines(chastity: ChastityStatus, task: Task | None, now: datetime) 
     return lines
 
 
+def _discipline_lines(debt: int, outstanding_penance: int) -> list[str]:
+    lines: list[str] = []
+    if debt > 0:
+        lines.append(
+            f"You carry a debt of {debt}. Clear it by serving penance or buying it down."
+        )
+    if outstanding_penance > 0:
+        noun = "penance" if outstanding_penance == 1 else "penances"
+        lines.append(f"{outstanding_penance} {noun} await completion.")
+    return lines
+
+
+async def _outstanding_penance_count(session: AsyncSession, profile_id: uuid.UUID) -> int:
+    return (await session.execute(
+        select(func.count()).select_from(Punishment).where(
+            Punishment.profile_id == profile_id,
+            Punishment.type == PunishmentType.PENANCE_TASK,
+            Punishment.status == PunishmentStatus.ISSUED,
+        )
+    )).scalar_one()
+
+
 async def _active_task(session: AsyncSession, profile_id: uuid.UUID) -> Task | None:
     return (await session.execute(
         select(Task)
@@ -140,8 +163,15 @@ async def standing_orders(
         for line in _reminder_lines(chastity, task, now)
     ]
 
+    econ = await econ_svc.get_economy(session, profile_id)
+    outstanding = await _outstanding_penance_count(session, profile_id)
+    notices += [
+        DroneNotice(unit="discipline", line=line)
+        for line in _discipline_lines(econ.debt, outstanding)
+    ]
+
     status = await batch_svc.pool_status(session, profile_id)
-    if status.task_pool_low or status.line_bank_low:
+    if status.task_pool_low or status.line_bank_low or status.punishment_pool_low:
         notices.append(DroneNotice(
             unit="reminder",
             line=_bank_line(
