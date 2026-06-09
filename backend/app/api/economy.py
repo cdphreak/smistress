@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.economy import service as econ_svc
-from app.schemas.economy import DenialTimerIn, DenialTimerOut, StandingOut, TokenOp
+from app.schemas.economy import BuyDownIn, ChastityOut, SetChastityIn, StandingOut, TokenOp
 
 router = APIRouter(prefix="/profile", tags=["economy"])
 
@@ -26,10 +26,13 @@ async def standing(
         econ = await econ_svc.get_economy(session, profile_id)
     except econ_svc.EconomyNotFound:
         raise _econ_404(profile_id)
-    timers = await econ_svc.active_denial_timers(session, profile_id)
+    chastity = await econ_svc.chastity_status(session, profile_id)
     return StandingOut(
-        merit=econ.merit, rank=econ.rank, tokens=econ.tokens,
-        denial_timers=[DenialTimerOut.model_validate(t) for t in timers],
+        merit=econ.merit, rank=econ.rank, tokens=econ.tokens, debt=econ.debt,
+        chastity=ChastityOut(
+            locked=chastity.locked, ends_at=chastity.ends_at,
+            seconds_remaining=chastity.seconds_remaining,
+        ),
     )
 
 
@@ -59,25 +62,33 @@ async def spend_tokens(
     return await standing(profile_id, session)
 
 
-@router.post(
-    "/{profile_id}/denial-timer",
-    response_model=DenialTimerOut,
-    status_code=status.HTTP_201_CREATED,
-)
-async def set_denial_timer(
-    profile_id: uuid.UUID, body: DenialTimerIn, session: AsyncSession = Depends(get_session)
-) -> DenialTimerOut:
-    timer = await econ_svc.set_denial_timer(
-        session, profile_id, reason=body.reason, ends_at=body.ends_at
-    )
+@router.post("/{profile_id}/chastity", response_model=StandingOut)
+async def set_chastity(
+    profile_id: uuid.UUID, body: SetChastityIn, session: AsyncSession = Depends(get_session)
+) -> StandingOut:
+    await econ_svc.extend_chastity(session, profile_id, hours=body.hours)
+    if body.note:
+        await econ_svc.set_chastity_note(session, profile_id, body.note)
     await session.commit()
-    return DenialTimerOut.model_validate(timer)
+    return await standing(profile_id, session)
 
 
-@router.post("/{profile_id}/denial-timer/clear")
-async def clear_denial_timers(
+@router.post("/{profile_id}/chastity/lift", response_model=StandingOut)
+async def lift_chastity(
     profile_id: uuid.UUID, session: AsyncSession = Depends(get_session)
-) -> dict:
-    cleared = await econ_svc.clear_denial_timers(session, profile_id)
+) -> StandingOut:
+    await econ_svc.lift_chastity(session, profile_id)
     await session.commit()
-    return {"cleared": cleared}
+    return await standing(profile_id, session)
+
+
+@router.post("/{profile_id}/debt/buy-down", response_model=StandingOut)
+async def buy_down_debt(
+    profile_id: uuid.UUID, body: BuyDownIn, session: AsyncSession = Depends(get_session)
+) -> StandingOut:
+    try:
+        await econ_svc.buy_down_debt(session, profile_id, debt_points=body.debt_points)
+    except econ_svc.EconomyNotFound:
+        raise _econ_404(profile_id)
+    await session.commit()
+    return await standing(profile_id, session)

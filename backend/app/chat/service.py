@@ -69,7 +69,7 @@ async def build_dossier(session: AsyncSession, profile_id: uuid.UUID) -> dict:
     """Read-only live status: economy + disposition + active task (Addendum A5)."""
     econ = await econ_svc.get_economy(session, profile_id)  # raises EconomyNotFound
     disposition = await persona_svc.get_disposition(session, profile_id)
-    timers = await econ_svc.active_denial_timers(session, profile_id)
+    chastity = await econ_svc.chastity_status(session, profile_id)
     active = (await session.execute(
         select(Task)
         .where(Task.profile_id == profile_id, Task.status.in_(_ACTIVE))
@@ -91,5 +91,12 @@ async def build_dossier(session: AsyncSession, profile_id: uuid.UUID) -> dict:
             if active is not None
             else None
         ),
-        "denial_timers": len(timers),
+        "debt": econ.debt,
+        "chastity": {
+            "locked": chastity.locked,
+            "ends_at": chastity.ends_at.isoformat() if chastity.ends_at else None,
+            "seconds_remaining": chastity.seconds_remaining,
+        },
+        # compat: existing frontend reads denial_timers as a count (M4b relabels).
+        "denial_timers": 1 if chastity.locked else 0,
     }
