@@ -10,11 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.batch import service as batch_svc
 from app.db.enums import PunishmentStatus, PunishmentType, TaskStatus
 from app.db.models.batch import DroneLine
-from app.db.models.economy import EconomyState
-from app.economy.service import ChastityStatus
 from app.db.models.punishment import Punishment
 from app.db.models.task import Task
 from app.economy import service as econ_svc
+from app.economy.service import ChastityStatus
 from app.services import profile as profile_svc
 
 # Task statuses that count as a live, outstanding assignment (mirrors app.chat.service).
@@ -120,13 +119,6 @@ async def _bank_lines(session: AsyncSession, profile_id: uuid.UUID) -> list[Dron
     )).scalars().all())
 
 
-async def _merit(session: AsyncSession, profile_id: uuid.UUID) -> int:
-    econ = (await session.execute(
-        select(EconomyState).where(EconomyState.profile_id == profile_id)
-    )).scalar_one_or_none()
-    return econ.merit if econ is not None else 0
-
-
 async def standing_orders(
     session: AsyncSession, profile_id: uuid.UUID, *, now: datetime | None = None
 ) -> list[DroneNotice]:
@@ -145,8 +137,9 @@ async def standing_orders(
         # The assignment unit drops the day's task from the pool (if any).
         task = await batch_svc.draw_and_assign(session, profile_id)
 
+    econ = await econ_svc.get_economy(session, profile_id)
     lines = await _bank_lines(session, profile_id)
-    band = batch_svc.merit_band(await _merit(session, profile_id))
+    band = batch_svc.merit_band(econ.merit)
     tod = batch_svc.time_of_day(now)
     # Daily rotation key, anchored to the UTC date (date.fromtimestamp would use
     # the local TZ and could roll over at the wrong hour / differ across machines).
@@ -163,7 +156,6 @@ async def standing_orders(
         for line in _reminder_lines(chastity, task, now)
     ]
 
-    econ = await econ_svc.get_economy(session, profile_id)
     outstanding = await _outstanding_penance_count(session, profile_id)
     notices += [
         DroneNotice(unit="discipline", line=line)

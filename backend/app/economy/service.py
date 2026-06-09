@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.db.enums import PunishmentStatus, TaskStatus
+from app.db.enums import PunishmentStatus, PunishmentType, TaskStatus
 from app.db.models.economy import ChastityTimer, EconomyState
 from app.db.models.punishment import Punishment
 from app.db.models.task import Task
@@ -222,6 +222,10 @@ async def buy_down_debt(
         ).order_by(Punishment.created_at, Punishment.id)
     )).scalars().all()
     for pun in issued:
+        # Penance must be served, not bought — its task stays live; clearing the
+        # numeric debt does not cancel it (serving it later still recovers merit).
+        if pun.type is PunishmentType.PENANCE_TASK:
+            continue
         if pun.debt_amount <= remaining:
             pun.status = PunishmentStatus.BOUGHT_DOWN
             pun.resolved_at = datetime.now(timezone.utc)

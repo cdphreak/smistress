@@ -21,6 +21,22 @@ def _issued(profile_id, debt_amount):
     )
 
 
+async def test_buy_down_does_not_buy_down_penance(session):
+    # Penance must be served, not bought — a buy-down leaves the penance ISSUED.
+    p = await _profile(session)
+    pen = Punishment(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=2,
+        reason="penance", debt_amount=15, status=PunishmentStatus.ISSUED,
+    )
+    session.add(pen)
+    await session.flush()
+    await econ_svc.adjust_debt(session, p.id, 15)
+    await econ_svc.grant_tokens(session, p.id, 100)
+    await econ_svc.buy_down_debt(session, p.id, debt_points=15)
+    await session.refresh(pen)
+    assert pen.status is PunishmentStatus.ISSUED  # penance is not bought down
+
+
 async def test_buy_down_marks_whole_punishments_bought_down_fifo(session):
     p = await _profile(session)
     session.add(_issued(p.id, 5))

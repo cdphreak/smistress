@@ -130,5 +130,5 @@ async def draw_and_issue(
         )
     return await issue_punishment(
         session, profile_id, type=_FALLBACK_TYPE, severity=severity,
-        reason=reason_prefix or "Discipline.", now=now,
+        reason=reason_prefix.rstrip(": ") or "Discipline.", now=now,
     )
