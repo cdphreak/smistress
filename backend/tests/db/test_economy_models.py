@@ -1,5 +1,3 @@
-from datetime import datetime, timedelta, timezone
-
 from sqlalchemy import select
 
 from app.db.models.economy import EconomyState
@@ -17,21 +15,6 @@ async def test_economy_state_defaults(session):
     assert es.merit == 0
     assert es.rank == "novice"
     assert es.tokens == 0
-
-
-async def test_denial_timer_persists(session):
-    from app.db.models.economy import DenialTimer  # noqa: F401 — removed in M4a; fixed later
-
-    profile = SubProfile(intensity_ceiling=60)
-    session.add(profile)
-    await session.flush()
-    ends = datetime.now(timezone.utc) + timedelta(hours=2)
-    session.add(DenialTimer(profile_id=profile.id, reason="missed task", ends_at=ends))
-    await session.commit()
-
-    dt = (await session.execute(select(DenialTimer))).scalar_one()
-    assert dt.reason == "missed task"
-    assert dt.active is True
 
 
 async def test_chastity_timer_is_single_per_profile(session):
