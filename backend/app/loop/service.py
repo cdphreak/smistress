@@ -17,6 +17,7 @@ from app.loop import verification
 from app.memory import service as mem_svc
 from app.safety import service as safety_svc
 from app.services import profile as profile_svc
+from app.supervision import service as sup_svc
 
 
 class TaskNotFound(Exception):
@@ -41,6 +42,8 @@ async def apply_terminal_discipline(session: AsyncSession, task: Task) -> None:
     if task.status is TaskStatus.VERIFIED_PASS:
         await disc_svc.settle_penance(session, task)
     elif task.status in (TaskStatus.VERIFIED_FAIL, TaskStatus.MISSED):
+        if await sup_svc.economy_frozen(session, task.profile_id):
+            return  # vacation freezes debt accrual (B6)
         severity = 2 if task.status is TaskStatus.VERIFIED_FAIL else 1
         await disc_svc.draw_and_issue(
             session, task.profile_id, severity=severity,
@@ -112,8 +115,10 @@ async def sweep_missed(session: AsyncSession, profile_id: uuid.UUID | None = Non
     overdue = (await session.execute(stmt)).scalars().all()
     missed = 0
     for task in overdue:
-        if await safety_svc.is_frozen(session, task.profile_id):
-            continue  # halted by safeword or on hiatus -> no miss, no penalty (spec 9)
+        if await safety_svc.is_frozen(session, task.profile_id) or await sup_svc.economy_frozen(
+            session, task.profile_id
+        ):
+            continue  # safeword/hiatus/vacation -> no miss, no penalty (spec 9 / B6)
         task.status = TaskStatus.MISSED
         await session.flush()  # ensure status is set before applying the outcome
         await econ_svc.apply_task_outcome(session, task)

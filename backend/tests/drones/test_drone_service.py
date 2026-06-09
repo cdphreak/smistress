@@ -159,3 +159,24 @@ async def test_batch_window_reminder_when_pool_low(session):
     notices = await drone_svc.standing_orders(session, p.id)
     reminders = [n for n in notices if n.unit == "reminder"]
     assert any("batch window" in n.line.lower() for n in reminders)
+
+
+async def test_vacation_blocks_task_drop_and_shows_paused(session):
+    from app.db.enums import SupervisionMode
+    from app.db.models.batch import TaskPoolItem
+    from app.db.models.task import Task as TaskModel
+    from app.supervision import service as sup_svc
+    from sqlalchemy import func, select
+
+    p = await _profile(session)
+    await sup_svc.set_mode(session, p.id, SupervisionMode.VACATION)
+    session.add(TaskPoolItem(
+        profile_id=p.id, description="Drawn drill", proof_requirement=ProofRequirement.HONOR,
+    ))
+    await session.flush()
+    notices = await drone_svc.standing_orders(session, p.id)
+    tasks = (await session.execute(
+        select(func.count()).select_from(TaskModel).where(TaskModel.profile_id == p.id)
+    )).scalar_one()
+    assert tasks == 0  # no task drawn under vacation
+    assert any("paused" in n.line.lower() for n in notices)
