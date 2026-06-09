@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.db.enums import ProofRequirement, PunishmentStatus, PunishmentType, TaskStatus
+from app.db.models.batch import PunishmentPoolItem
 from app.db.models.punishment import Punishment
 from app.db.models.task import Task
 from app.economy import service as econ_svc
@@ -83,3 +84,52 @@ async def settle_penance(session: AsyncSession, task: Task) -> Punishment | None
     await econ_svc.adjust_merit(session, task.profile_id, _settings.penance_merit_recovery)
     await session.flush()
     return punishment
+
+
+# Deterministic fallback when the pool is empty (mirrors the M4a placeholder).
+_FALLBACK_TYPE = PunishmentType.CHASTITY_EXTENSION
+
+
+async def draw_punishment(
+    session: AsyncSession, profile_id: uuid.UUID, *, severity: int
+) -> PunishmentPoolItem | None:
+    """Draw an unconsumed pooled punishment, preferring the requested severity and
+    falling back to any. Marks it consumed. Returns None if the pool is empty."""
+    base = select(PunishmentPoolItem).where(
+        PunishmentPoolItem.profile_id == profile_id,
+        PunishmentPoolItem.consumed.is_(False),
+    )
+    item = (await session.execute(
+        base.where(PunishmentPoolItem.severity == severity)
+        .order_by(PunishmentPoolItem.created_at, PunishmentPoolItem.id).limit(1)
+    )).scalars().first()
+    if item is None:
+        item = (await session.execute(
+            base.order_by(PunishmentPoolItem.created_at, PunishmentPoolItem.id).limit(1)
+        )).scalars().first()
+    if item is not None:
+        item.consumed = True
+        await session.flush()
+    return item
+
+
+async def draw_and_issue(
+    session: AsyncSession,
+    profile_id: uuid.UUID,
+    *,
+    severity: int,
+    reason_prefix: str = "",
+    now: datetime | None = None,
+) -> Punishment:
+    """Draw a varied punishment from the pool and issue it; fall back to a
+    deterministic chastity extension when the pool is empty. Caller commits."""
+    item = await draw_punishment(session, profile_id, severity=severity)
+    if item is not None:
+        reason = f"{reason_prefix}{item.reason}" if reason_prefix else item.reason
+        return await issue_punishment(
+            session, profile_id, type=item.type, severity=item.severity, reason=reason, now=now,
+        )
+    return await issue_punishment(
+        session, profile_id, type=_FALLBACK_TYPE, severity=severity,
+        reason=reason_prefix or "Discipline.", now=now,
+    )
