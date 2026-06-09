@@ -47,3 +47,26 @@ async def test_passing_a_penance_task_settles_it(session):
         select(Punishment).where(Punishment.id == pun.id)
     )).scalar_one()
     assert settled.status is PunishmentStatus.SERVED
+
+
+async def test_fail_draws_from_punishment_pool_when_available(session):
+    from app.db.enums import PunishmentType
+    from app.db.models.batch import PunishmentPoolItem
+
+    p = await _profile(session)
+    session.add(PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.TOKEN_CONFISCATION, severity=2, reason="pooled fail",
+    ))
+    await econ_svc.grant_tokens(session, p.id, 100)
+    await session.flush()
+    task = await loop_svc.assign_task(
+        session, p.id, description="drill", proof_requirement=ProofRequirement.HONOR,
+    )
+    task.status = TaskStatus.VERIFIED_FAIL
+    await session.flush()
+    await loop_svc.apply_terminal_discipline(session, task)
+    pun = (await session.execute(
+        select(Punishment).where(Punishment.profile_id == p.id)
+    )).scalar_one()
+    assert pun.type is PunishmentType.TOKEN_CONFISCATION  # drawn from the pool, not the fallback
+    assert pun.reason == "pooled fail"

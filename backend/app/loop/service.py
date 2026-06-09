@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.db.enums import ProofRequirement, PunishmentType, TaskStatus
+from app.db.enums import ProofRequirement, TaskStatus
 from app.db.models.loop import Proof, TaskTimer
 from app.db.models.task import Task
 from app.discipline import service as disc_svc
@@ -34,10 +34,6 @@ async def _get_task(session: AsyncSession, task_id: uuid.UUID) -> Task:
     return task
 
 
-# Default automatic consequence for a miss/fail until the generated punishment
-# pool + deterministic selection lands (M4b). Severity scales with the offence.
-_AUTO_PUNISHMENT_TYPE = PunishmentType.CHASTITY_EXTENSION
-
 
 async def apply_terminal_discipline(session: AsyncSession, task: Task) -> None:
     """At a terminal task status, run the discipline unit (Addendum B7):
@@ -46,9 +42,9 @@ async def apply_terminal_discipline(session: AsyncSession, task: Task) -> None:
         await disc_svc.settle_penance(session, task)
     elif task.status in (TaskStatus.VERIFIED_FAIL, TaskStatus.MISSED):
         severity = 2 if task.status is TaskStatus.VERIFIED_FAIL else 1
-        await disc_svc.issue_punishment(
-            session, task.profile_id, type=_AUTO_PUNISHMENT_TYPE, severity=severity,
-            reason=f"{task.status.value}: {task.description}",
+        await disc_svc.draw_and_issue(
+            session, task.profile_id, severity=severity,
+            reason_prefix=f"{task.status.value}: ",
         )
     await session.flush()
 

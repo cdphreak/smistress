@@ -125,9 +125,8 @@ async def draw_and_issue(
     deterministic chastity extension when the pool is empty. Caller commits."""
     item = await draw_punishment(session, profile_id, severity=severity)
     if item is not None:
-        reason = f"{reason_prefix}{item.reason}" if reason_prefix else item.reason
         return await issue_punishment(
-            session, profile_id, type=item.type, severity=item.severity, reason=reason, now=now,
+            session, profile_id, type=item.type, severity=item.severity, reason=item.reason, now=now,
         )
     return await issue_punishment(
         session, profile_id, type=_FALLBACK_TYPE, severity=severity,
