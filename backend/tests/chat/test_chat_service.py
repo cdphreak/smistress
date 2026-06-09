@@ -77,4 +77,21 @@ async def test_build_dossier_composes_economy_disposition_active_task(session):
     assert d["tokens"] == 0
     assert "band" in d["disposition"] and "line" in d["disposition"]
     assert d["active_task"] is None
+    assert d["debt"] == 0
+    assert d["chastity"]["locked"] is False
     assert d["denial_timers"] == 0
+
+
+async def test_build_dossier_reflects_active_chastity_lock(session):
+    from datetime import datetime, timedelta, timezone
+
+    from app.economy import service as econ_svc
+
+    p = await _profile(session)
+    await econ_svc.set_chastity(
+        session, p.id, ends_at=datetime.now(timezone.utc) + timedelta(hours=4)
+    )
+    d = await chat_svc.build_dossier(session, p.id)
+    assert d["chastity"]["locked"] is True
+    assert d["chastity"]["seconds_remaining"] > 0
+    assert d["denial_timers"] == 1  # compat count reflects the single lock

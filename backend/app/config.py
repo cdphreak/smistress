@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +20,18 @@ class Settings(BaseSettings):
     batch_task_low: int = 2  # at/below this, the reminder unit asks for a batch window
     batch_line_target: int = 24  # top the drone line bank up to this many lines
     batch_line_low: int = 6
+    # Debt / punishment tuning (Addendum B7). Severity 1 (light) .. 3 (heavy).
+    debt_by_severity: dict[int, int] = Field(
+        default_factory=lambda: {1: 5, 2: 15, 3: 40}
+    )
+    chastity_hours_by_severity: dict[int, int] = Field(
+        default_factory=lambda: {1: 12, 2: 24, 3: 72}
+    )
+    confiscation_by_severity: dict[int, int] = Field(
+        default_factory=lambda: {1: 5, 2: 15, 3: 40}
+    )
+    buydown_tokens_per_debt: int = 3  # punishing: 3 tokens clears 1 debt point, no merit
+    penance_merit_recovery: int = 3  # small recovery for an honest, on-time penance serve
     embedding_model: str = "nomic-embed-text"  # local default (Ollama); OpenAI: text-embedding-3-small
     embedding_dim: int = 768  # nomic-embed-text dim; text-embedding-3-small = 1536
     falkordb_host: str = "localhost"

@@ -50,17 +50,17 @@ async def test_execute_assign_task_creates_task(session):
     assert len(tasks) == 1 and tasks[0].status is TaskStatus.ASSIGNED
 
 
-async def test_execute_grant_tokens_and_denial(session):
+async def test_execute_grant_tokens_and_chastity(session):
     p = await _profile(session)
     card = await tools.execute_action(session, p.id, {"tool": "grant_tokens", "amount": 3})
     assert card == {"tool": "grant_tokens", "amount": 3, "reason": ""}
     assert (await econ_svc.get_economy(session, p.id)).tokens == 3
 
     card = await tools.execute_action(
-        session, p.id, {"tool": "set_denial_timer", "hours": 12, "reason": "discipline"}
+        session, p.id, {"tool": "set_chastity", "hours": 12, "reason": "discipline"}
     )
-    assert card["tool"] == "set_denial_timer" and card["hours"] == 12
-    assert len(await econ_svc.active_denial_timers(session, p.id)) == 1
+    assert card["tool"] == "set_chastity" and card["hours"] == 12
+    assert (await econ_svc.chastity_status(session, p.id)).locked is True
 
 
 async def test_execute_assign_task_normalizes_capitalized_proof(session):

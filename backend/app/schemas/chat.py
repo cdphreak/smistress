@@ -31,10 +31,18 @@ class ActiveTask(BaseModel):
     status: str
 
 
+class ChastityBlock(BaseModel):
+    locked: bool
+    ends_at: str | None
+    seconds_remaining: int
+
+
 class DossierOut(BaseModel):
     rank: str
     merit: int
     tokens: int
+    debt: int
     disposition: DispositionBlock
     active_task: ActiveTask | None
+    chastity: ChastityBlock
     denial_timers: int

@@ -70,13 +70,14 @@ async def execute_action(session: AsyncSession, profile_id: uuid.UUID, action: d
                 "proof": proof.value,
                 "merit_reward": task.merit_reward,
             }
-        if tool == "set_denial_timer":
+        if tool == "set_chastity":
             hours = int(action["hours"])
-            ends_at = datetime.now(timezone.utc) + timedelta(hours=hours)
-            await econ_svc.set_denial_timer(
-                session, profile_id, reason=str(action.get("reason", "")), ends_at=ends_at
-            )
-            return {"tool": "set_denial_timer", "hours": hours, "reason": action.get("reason", "")}
+            if hours < 1:
+                return {"tool": "set_chastity", "error": "hours must be >= 1"}
+            await econ_svc.extend_chastity(session, profile_id, hours=hours)
+            if action.get("reason"):
+                await econ_svc.set_chastity_note(session, profile_id, str(action["reason"]))
+            return {"tool": "set_chastity", "hours": hours, "reason": action.get("reason", "")}
         if tool == "grant_tokens":
             amount = int(action["amount"])
             if amount < 1:

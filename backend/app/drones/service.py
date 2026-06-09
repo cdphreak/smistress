@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.batch import service as batch_svc
 from app.db.enums import TaskStatus
 from app.db.models.batch import DroneLine
-from app.db.models.economy import DenialTimer, EconomyState
+from app.db.models.economy import EconomyState
+from app.economy.service import ChastityStatus
 from app.db.models.task import Task
 from app.economy import service as econ_svc
 from app.services import profile as profile_svc
@@ -66,11 +67,11 @@ def _assignment_line(
     return template.replace("{task}", task.description)
 
 
-def _reminder_lines(timers: list[DenialTimer], task: Task | None, now: datetime) -> list[str]:
+def _reminder_lines(chastity: ChastityStatus, task: Task | None, now: datetime) -> list[str]:
     lines: list[str] = []
-    for timer in timers:
-        reason = f": {timer.reason}" if timer.reason else ""
-        lines.append(f"Denial remains in effect{reason}. Endure it until she lifts it.")
+    if chastity.locked:
+        hours = chastity.seconds_remaining // 3600
+        lines.append(f"Chastity remains locked — {hours}h remaining. Endure until she lifts it.")
     if task is not None and task.deadline is not None:
         if now >= task.deadline:
             lines.append(
@@ -133,10 +134,10 @@ async def standing_orders(
         line=_assignment_line(task, lines, band=band, tod=tod, rotation=rotation),
     )]
 
-    timers = await econ_svc.active_denial_timers(session, profile_id)
+    chastity = await econ_svc.chastity_status(session, profile_id, now=now)
     notices += [
         DroneNotice(unit="reminder", line=line)
-        for line in _reminder_lines(timers, task, now)
+        for line in _reminder_lines(chastity, task, now)
     ]
 
     status = await batch_svc.pool_status(session, profile_id)

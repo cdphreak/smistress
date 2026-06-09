@@ -5,6 +5,7 @@ import sys
 
 import psycopg
 import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # psycopg's async driver cannot run on Windows' default ProactorEventLoop.
@@ -36,6 +37,9 @@ async def session() -> AsyncSession:
     _ensure_test_database()
     engine = create_async_engine(settings.test_database_url)
     async with engine.begin() as conn:
+        # Drop tables that were removed from Base.metadata but may still exist in the
+        # test DB from a previous run (e.g. denial_timer, removed in M4a Task 2).
+        await conn.execute(text("DROP TABLE IF EXISTS denial_timer CASCADE"))
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     maker = async_sessionmaker(engine, expire_on_commit=False)

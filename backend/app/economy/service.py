@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.db.enums import TaskStatus
-from app.db.models.economy import DenialTimer, EconomyState
+from app.db.models.economy import ChastityTimer, EconomyState
 from app.db.models.task import Task
+
+_settings = Settings()
 
 # Merit bounds — identical to app.persona.disposition (the disposition reads this merit).
 MERIT_MIN, MERIT_MAX = -100, 100
@@ -94,32 +98,129 @@ async def spend_tokens(
     return econ
 
 
-async def set_denial_timer(
-    session: AsyncSession, profile_id: uuid.UUID, *, reason: str, ends_at: datetime
-) -> DenialTimer:
-    timer = DenialTimer(profile_id=profile_id, reason=reason, ends_at=ends_at, active=True)
-    session.add(timer)
-    await session.flush()
-    return timer
+# ---------------------------------------------------------------------------
+# Chastity timer
+# ---------------------------------------------------------------------------
 
 
-async def active_denial_timers(
+@dataclass
+class ChastityStatus:
+    locked: bool
+    ends_at: datetime | None
+    seconds_remaining: int
+
+
+async def _get_or_create_chastity(
     session: AsyncSession, profile_id: uuid.UUID
-) -> list[DenialTimer]:
-    rows = (await session.execute(
-        select(DenialTimer)
-        .where(DenialTimer.profile_id == profile_id, DenialTimer.active.is_(True))
-        .order_by(DenialTimer.created_at)
-    )).scalars().all()
-    return list(rows)
+) -> ChastityTimer:
+    row = (await session.execute(
+        select(ChastityTimer).where(ChastityTimer.profile_id == profile_id)
+    )).scalar_one_or_none()
+    if row is None:
+        row = ChastityTimer(profile_id=profile_id)
+        session.add(row)
+        await session.flush()
+    return row
 
 
-async def clear_denial_timers(session: AsyncSession, profile_id: uuid.UUID) -> int:
-    timers = await active_denial_timers(session, profile_id)
-    for timer in timers:
-        timer.active = False
+async def chastity_status(
+    session: AsyncSession, profile_id: uuid.UUID, *, now: datetime | None = None
+) -> ChastityStatus:
+    now = now or datetime.now(timezone.utc)
+    row = (await session.execute(
+        select(ChastityTimer).where(ChastityTimer.profile_id == profile_id)
+    )).scalar_one_or_none()
+    ends = row.ends_at if row else None
+    if ends is not None and ends > now:
+        return ChastityStatus(True, ends, int((ends - now).total_seconds()))
+    return ChastityStatus(False, ends, 0)
+
+
+async def set_chastity(
+    session: AsyncSession, profile_id: uuid.UUID, *, ends_at: datetime, note: str = ""
+) -> ChastityTimer:
+    """Lock chastity until ``ends_at``. Caller commits."""
+    row = await _get_or_create_chastity(session, profile_id)
+    row.ends_at = ends_at
+    if note:
+        row.note = note
     await session.flush()
-    return len(timers)
+    return row
+
+
+async def extend_chastity(
+    session: AsyncSession, profile_id: uuid.UUID, *, hours: int, now: datetime | None = None
+) -> ChastityTimer:
+    """Push the chastity release out by ``hours`` (start from now if not locked).
+    Only lengthens — never shortens. Caller commits."""
+    now = now or datetime.now(timezone.utc)
+    row = await _get_or_create_chastity(session, profile_id)
+    base = row.ends_at if (row.ends_at is not None and row.ends_at > now) else now
+    row.ends_at = base + timedelta(hours=hours)
+    await session.flush()
+    return row
+
+
+async def set_chastity_note(
+    session: AsyncSession, profile_id: uuid.UUID, note: str
+) -> ChastityTimer:
+    row = await _get_or_create_chastity(session, profile_id)
+    row.note = note
+    await session.flush()
+    return row
+
+
+async def lift_chastity(session: AsyncSession, profile_id: uuid.UUID) -> bool:
+    """She releases the lock (ends_at -> None). Returns True if it was locked."""
+    row = (await session.execute(
+        select(ChastityTimer).where(ChastityTimer.profile_id == profile_id)
+    )).scalar_one_or_none()
+    was_locked = bool(row and row.ends_at is not None)
+    if row is not None:
+        row.ends_at = None
+        await session.flush()
+    return was_locked
+
+
+# ---------------------------------------------------------------------------
+# Debt ledger
+# ---------------------------------------------------------------------------
+
+
+async def adjust_debt(
+    session: AsyncSession, profile_id: uuid.UUID, delta: int
+) -> EconomyState:
+    """Apply a debt change, clamped at zero (debt never negative). Caller commits."""
+    econ = await get_economy(session, profile_id)
+    econ.debt = max(0, econ.debt + delta)
+    await session.flush()
+    return econ
+
+
+async def buy_down_debt(
+    session: AsyncSession, profile_id: uuid.UUID, *, debt_points: int
+) -> EconomyState:
+    """Spend tokens to clear debt at a punishing rate (no merit). Clears as much as
+    both the debt balance and the token purse allow. Caller commits.
+
+    Reduces the aggregate debt balance only; it does not yet resolve individual
+    Punishment ledger rows to BOUGHT_DOWN — per-line ledger resolution lands with
+    the discipline drone unit that surfaces the ledger (M4b)."""
+    if debt_points < 0:
+        raise ValueError("debt_points must be non-negative")
+    econ = await get_economy(session, profile_id)
+    rate = _settings.buydown_tokens_per_debt
+    affordable = econ.tokens // rate
+    cleared = min(debt_points, econ.debt, affordable)
+    econ.debt -= cleared
+    econ.tokens -= cleared * rate
+    await session.flush()
+    return econ
+
+
+# ---------------------------------------------------------------------------
+# Task outcome application
+# ---------------------------------------------------------------------------
 
 
 def _streak_multiplier(consecutive_passes: int) -> float:

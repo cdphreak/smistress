@@ -49,16 +49,15 @@ async def test_standing_orders_raises_for_unknown_profile(session):
         await drone_svc.standing_orders(session, uuid.uuid4())
 
 
-async def test_reminder_notice_for_active_denial_timer(session):
+async def test_reminder_notice_for_active_chastity_lock(session):
     from app.economy import service as econ_svc
 
     p = await _profile(session)
     ends = datetime.now(timezone.utc) + timedelta(hours=8)
-    await econ_svc.set_denial_timer(session, p.id, reason="overnight discipline", ends_at=ends)
+    await econ_svc.set_chastity(session, p.id, ends_at=ends, note="overnight discipline")
     notices = await drone_svc.standing_orders(session, p.id)
     reminders = [n for n in notices if n.unit == "reminder"]
-    assert any("denial" in n.line.lower() for n in reminders)
-    assert any("overnight discipline" in n.line for n in reminders)
+    assert any("chastity remains locked" in n.line.lower() for n in reminders)
 
 
 async def test_reminder_notice_for_passed_deadline(session):
@@ -110,8 +109,8 @@ async def test_no_state_reminder_when_no_timers_or_deadline(session):
     await session.flush()
     notices = await drone_svc.standing_orders(session, p.id)
     reminders = [n for n in notices if n.unit == "reminder"]
-    # denial/deadline reminders are absent; only the (empty-pool) batch-window prompt may remain
-    assert all("denial" not in n.line.lower() for n in reminders)
+    # chastity/deadline reminders are absent; only the (empty-pool) batch-window prompt may remain
+    assert all("chastity" not in n.line.lower() for n in reminders)
     assert all("deadline" not in n.line.lower() for n in reminders)
 
 

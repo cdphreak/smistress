@@ -71,3 +71,19 @@ class LLMAvailability(str, enum.Enum):
 
     OFFLINE = "offline"
     ONLINE = "online"
+
+
+class PunishmentType(str, enum.Enum):
+    """A discipline-unit consequence (Addendum B7). Three types with live effects;
+    privilege-lock is deferred until audiences/comforts exist."""
+
+    PENANCE_TASK = "penance_task"  # a punitive Task (also covers lines/writing)
+    CHASTITY_EXTENSION = "chastity_extension"  # pushes the chastity release out
+    TOKEN_CONFISCATION = "token_confiscation"  # removes tokens from the purse
+
+
+class PunishmentStatus(str, enum.Enum):
+    ISSUED = "issued"  # debt accrued, awaiting penance
+    SERVED = "served"  # penance completed (debt cleared via the task loop)
+    BOUGHT_DOWN = "bought_down"  # cleared by spending tokens (no merit)
+    EXPIRED = "expired"  # reserved for a future sweep; unused in M4a

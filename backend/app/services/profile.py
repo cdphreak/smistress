@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models.character import CharacterModel
-from app.db.models.economy import DenialTimer, EconomyState
+from app.db.models.economy import ChastityTimer, EconomyState
+from app.db.models.punishment import Punishment
 from app.db.models.loop import Proof, TaskTimer
 from app.db.models.memory import MemoryEpisode
 from app.db.models.message import Message
@@ -64,7 +65,7 @@ async def delete_profile(session: AsyncSession, profile_id: uuid.UUID) -> None:
         await session.execute(delete(TaskTimer).where(TaskTimer.task_id.in_(task_ids)))
 
     for model in (
-        Message, Task, DenialTimer, EconomyState, CharacterModel, MemoryEpisode,
+        Message, Task, ChastityTimer, Punishment, EconomyState, CharacterModel, MemoryEpisode,
         SafetyState, KinkEntry, Toy, Goal, ArchetypeResult, SoContext,
     ):
         await session.execute(delete(model).where(model.profile_id == profile_id))
