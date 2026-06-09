@@ -154,6 +154,8 @@ async def test_assignment_unit_drops_a_pooled_task_when_none_active(session):
 
 
 async def test_batch_window_reminder_when_pool_low(session):
+    # A fresh profile has empty pools (0 <= batch_task_low/batch_line_low), so the
+    # reminder unit should ask the sub to grant a batch window.
     p = await _profile(session)
     notices = await drone_svc.standing_orders(session, p.id)
     reminders = [n for n in notices if n.unit == "reminder"]

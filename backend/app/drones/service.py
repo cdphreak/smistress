@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -124,7 +124,9 @@ async def standing_orders(
     lines = await _bank_lines(session, profile_id)
     band = batch_svc.merit_band(await _merit(session, profile_id))
     tod = batch_svc.time_of_day(now)
-    rotation = date.fromtimestamp(now.timestamp()).toordinal()
+    # Daily rotation key, anchored to the UTC date (date.fromtimestamp would use
+    # the local TZ and could roll over at the wrong hour / differ across machines).
+    rotation = now.astimezone(timezone.utc).date().toordinal()
 
     notices = [DroneNotice(
         unit="assignment",
