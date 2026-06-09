@@ -14,25 +14,24 @@ async def _profile(session):
     return p
 
 
-async def test_trigger_stop_halts_lifts_denial_no_merit_penalty(session):
+async def test_trigger_stop_halts_lifts_chastity_no_merit_penalty(session):
     p = await _profile(session)
-    await econ_svc.set_denial_timer(
-        session, p.id, reason="discipline",
-        ends_at=datetime.now(timezone.utc) + timedelta(hours=2),
+    await econ_svc.set_chastity(
+        session, p.id, ends_at=datetime.now(timezone.utc) + timedelta(hours=2), note="discipline",
     )
     before = (await econ_svc.get_economy(session, p.id)).merit
 
     receipt = await safety_svc.trigger_stop(session, p.id)
 
     assert receipt.scene_halted is True
-    assert receipt.denial_lifted == 1
+    assert receipt.denial_lifted == 1  # compat field: 1 chastity lock lifted
     assert receipt.merit_penalty == 0
     assert receipt.aftercare  # non-empty caring text
     state = await safety_svc.get_or_create_state(session, p.id)
     assert state.is_halted is True
     assert state.last_safeword_at is not None
     assert (await econ_svc.get_economy(session, p.id)).merit == before  # unchanged
-    assert await econ_svc.active_denial_timers(session, p.id) == []      # lifted
+    assert (await econ_svc.chastity_status(session, p.id)).locked is False  # lifted
 
 
 async def test_resume_clears_halt(session):

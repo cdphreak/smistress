@@ -81,7 +81,8 @@ async def trigger_stop(
     state = await get_or_create_state(session, profile_id)
     state.is_halted = True
     state.last_safeword_at = datetime.now(timezone.utc)
-    lifted = await econ_svc.clear_denial_timers(session, profile_id)
+    # Safeword releases the chastity lock too (deterministic safety; spec 9).
+    lifted = 1 if await econ_svc.lift_chastity(session, profile_id) else 0
     profile = await profile_svc.get_profile(session, profile_id)
     await session.flush()
     return StopReceipt(
