@@ -207,7 +207,7 @@ git commit -m "feat(batch): TaskPoolItem + DroneLine models for offline batch ar
 
 - [ ] **Step 1: Write the migration**
 
-The current migration head is `a1b2c3d4e5f6` (verified via the revision chain). The `proof_requirement` PG enum already exists from the initial schema — reference it with `create_type=False` so the migration does **not** try to recreate it.
+The current migration head is `a1b2c3d4e5f6` (verified via the revision chain). The `proof_requirement` PG enum already exists from the initial schema — reference it with **`postgresql.ENUM(..., create_type=False)`** so the migration does **not** try to recreate it. (The generic `sa.Enum(..., create_type=False)` does *not* suppress the `CREATE TYPE` event when passed inline to `op.create_table` — use the postgresql-dialect ENUM.) Its labels are the Python enum **names** (`PHOTO…NONE`, uppercase), matching the initial schema.
 
 Create `backend/alembic/versions/b2c3d4e5f6a7_add_batch_artifacts.py`:
 
@@ -223,6 +223,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'b2c3d4e5f6a7'
@@ -233,8 +234,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    proof = sa.Enum(
-        'photo', 'video', 'timer', 'honor', 'none',
+    proof = postgresql.ENUM(
+        'PHOTO', 'VIDEO', 'TIMER', 'HONOR', 'NONE',
         name='proof_requirement', create_type=False,
     )
     op.create_table(
