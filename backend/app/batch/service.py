@@ -18,7 +18,9 @@ from app.db.models.batch import DroneLine, TaskPoolItem
 from app.db.models.character import CharacterModel
 from app.db.models.economy import EconomyState
 from app.db.models.profile import SubProfile
+from app.db.models.task import Task
 from app.llm.provider import LLMProvider
+from app.loop import service as loop_svc
 
 # Module-level Settings instance, matching the convention in availability/service.py.
 _settings = Settings()
@@ -278,3 +280,33 @@ async def generate_batch(
         status.task_pool + added_tasks,
         status.line_bank + added_lines,
     )
+
+
+async def _next_pool_item(session: AsyncSession, profile_id: uuid.UUID) -> TaskPoolItem | None:
+    return (await session.execute(
+        select(TaskPoolItem)
+        .where(TaskPoolItem.profile_id == profile_id, TaskPoolItem.consumed.is_(False))
+        .order_by(TaskPoolItem.created_at)
+        .limit(1)
+    )).scalars().first()
+
+
+async def draw_and_assign(session: AsyncSession, profile_id: uuid.UUID) -> Task | None:
+    """The assignment drone drops the next pooled task as a real Task (Addendum
+    B3/B4) — no LLM. Marks the pool item consumed. Returns None if the pool is
+    empty. Caller commits."""
+    item = await _next_pool_item(session, profile_id)
+    if item is None:
+        return None
+    task = await loop_svc.assign_task(
+        session,
+        profile_id,
+        description=item.description,
+        proof_requirement=item.proof_requirement,
+        merit_reward=item.merit_reward,
+        merit_fail_penalty=item.merit_fail_penalty,
+        merit_miss_penalty=item.merit_miss_penalty,
+    )
+    item.consumed = True
+    await session.flush()
+    return task
