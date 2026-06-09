@@ -6,6 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.db.models.batch import DroneLine, PunishmentPoolItem, TaskPoolItem
 from app.db.models.character import CharacterModel
 from app.db.models.economy import ChastityTimer, EconomyState
 from app.db.models.punishment import Punishment
@@ -67,6 +68,7 @@ async def delete_profile(session: AsyncSession, profile_id: uuid.UUID) -> None:
     for model in (
         Message, Task, ChastityTimer, Punishment, EconomyState, CharacterModel, MemoryEpisode,
         SafetyState, KinkEntry, Toy, Goal, ArchetypeResult, SoContext,
+        TaskPoolItem, DroneLine, PunishmentPoolItem,
     ):
         await session.execute(delete(model).where(model.profile_id == profile_id))
 

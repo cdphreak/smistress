@@ -7,7 +7,7 @@ from sqlalchemy import Enum, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.enums import ProofRequirement
+from app.db.enums import ProofRequirement, PunishmentType
 from app.db.models.profile import SubProfile
 
 
@@ -59,6 +59,27 @@ class DroneLine(Base):
     merit_band: Mapped[str] = mapped_column(String, default="any")  # low|mid|high|any
     time_of_day: Mapped[str] = mapped_column(String, default="any")  # morning|day|evening|night|any
     text: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    profile: Mapped[SubProfile] = relationship()
+
+
+class PunishmentPoolItem(Base):
+    """A pre-generated, undrawn punishment (Addendum B4 punishment pool). The
+    discipline unit draws one matching the offence severity and issues it; carries
+    the same merit/debt-free flavor as the drone line bank — debt stakes come from
+    the severity at issue time."""
+
+    __tablename__ = "punishment_pool_item"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sub_profile.id"))
+
+    type: Mapped[PunishmentType] = mapped_column(Enum(PunishmentType, name="punishment_type"))
+    severity: Mapped[int] = mapped_column(default=1)  # 1 (light) .. 3 (heavy)
+    reason: Mapped[str] = mapped_column(String)
+
+    consumed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     profile: Mapped[SubProfile] = relationship()
