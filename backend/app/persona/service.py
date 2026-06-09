@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.enums import KinkRating, TaskStatus
+from app.db.enums import KinkRating, SupervisionMode, TaskStatus
 from app.db.models.economy import EconomyState
 from app.db.models.profile import KinkEntry
 from app.db.models.task import Task
@@ -65,7 +65,7 @@ async def get_disposition(session: AsyncSession, profile_id: uuid.UUID) -> Dispo
 
 
 async def build_authoritative_state_block(session: AsyncSession, profile_id: uuid.UUID) -> str:
-    await profile_svc.get_profile(session, profile_id)  # 404 guard
+    profile = await profile_svc.get_profile(session, profile_id)  # 404 guard
     # TODO(M6): when the loop drives turns in a hot path, pass the already-loaded
     # character/economy objects into these helpers to avoid re-selecting per turn.
     kinks = (await session.execute(
@@ -93,7 +93,11 @@ async def build_authoritative_state_block(session: AsyncSession, profile_id: uui
             f"CHASTITY: locked, {chastity.seconds_remaining // 3600}h remaining"
             if chastity.locked else "CHASTITY: not locked"
         ),
+        f"SUPERVISION: {profile.supervision_mode.value}",
     ]
+    _sup_note = (profile.supervision_notes or {}).get(profile.supervision_mode.value, "").strip()
+    if _sup_note:
+        lines.append(f"WHAT'S POSSIBLE NOW: {_sup_note}")
     if active_task is not None:
         lines.append(
             f"ACTIVE TASK: {active_task.description} "
@@ -101,6 +105,8 @@ async def build_authoritative_state_block(session: AsyncSession, profile_id: uui
         )
     else:
         lines.append("ACTIVE TASK: none")
+    if profile.supervision_mode is SupervisionMode.VACATION:
+        lines.insert(0, "VACATION — training is paused; assign nothing and apply no pressure.")
     safety_state = await safety_svc.get_or_create_state(session, profile_id)
     if safety_state.is_halted:
         lines.insert(0, "SCENE HALTED (user safeworded) — make no new demands; stay calm and caring.")
