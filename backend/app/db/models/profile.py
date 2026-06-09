@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.enums import GoalStatus, KinkRating
+from app.db.enums import GoalStatus, KinkRating, SupervisionMode
 
 
 class SubProfile(Base):
@@ -17,6 +17,10 @@ class SubProfile(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     intensity_ceiling: Mapped[int] = mapped_column(default=50)
     aftercare_prefs: Mapped[str | None] = mapped_column(String, default=None)
+    supervision_mode: Mapped[SupervisionMode] = mapped_column(
+        Enum(SupervisionMode, name="supervision_mode"), default=SupervisionMode.FULL
+    )
+    supervision_notes: Mapped[dict] = mapped_column(JSONB, default=dict)  # mode -> note
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     kinks: Mapped[list[KinkEntry]] = relationship(
