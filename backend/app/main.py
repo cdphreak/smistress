@@ -14,6 +14,7 @@ from app.api.onboarding import router as onboarding_router
 from app.api.persona import router as persona_router
 from app.api.profile import router as profile_router
 from app.api.safety import router as safety_router
+from app.api.supervision import router as supervision_router
 from app.api.tasks import router as tasks_router
 from app.config import Settings
 from app.db.session import get_session
@@ -34,6 +35,7 @@ app.include_router(chat_router)
 app.include_router(availability_router)
 app.include_router(batch_router)
 app.include_router(drones_router)
+app.include_router(supervision_router)
 
 
 def get_provider() -> LLMProvider:
