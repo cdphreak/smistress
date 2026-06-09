@@ -1,5 +1,12 @@
+from datetime import datetime, timezone
+
 from app.config import Settings
-from app.db.enums import PunishmentStatus, PunishmentType
+from app.db.enums import ProofRequirement, PunishmentStatus, PunishmentType, TaskStatus
+from app.db.models.task import Task
+from app.discipline import service as disc_svc
+from app.economy import service as econ_svc
+from app.schemas.onboarding import ProfileCreate
+from app.services import profile as profile_svc
 
 
 def test_punishment_enums_have_expected_members():
@@ -19,17 +26,6 @@ def test_severity_maps_cover_1_to_3():
         assert sev in s.confiscation_by_severity
     assert s.buydown_tokens_per_debt >= 1
     assert s.penance_merit_recovery >= 0
-
-
-from datetime import datetime, timezone
-
-from app.db.enums import ProofRequirement, PunishmentStatus, PunishmentType, TaskStatus
-from app.db.models.task import Task
-from app.discipline import service as disc_svc
-from app.economy import service as econ_svc
-from app.schemas.onboarding import ProfileCreate
-from app.services import profile as profile_svc
-from sqlalchemy import select
 
 
 async def _profile(session):
