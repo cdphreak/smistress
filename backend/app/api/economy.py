@@ -66,6 +66,10 @@ async def spend_tokens(
 async def set_chastity(
     profile_id: uuid.UUID, body: SetChastityIn, session: AsyncSession = Depends(get_session)
 ) -> StandingOut:
+    try:
+        await econ_svc.get_economy(session, profile_id)  # 404 before inserting a timer row
+    except econ_svc.EconomyNotFound:
+        raise _econ_404(profile_id)
     await econ_svc.extend_chastity(session, profile_id, hours=body.hours)
     if body.note:
         await econ_svc.set_chastity_note(session, profile_id, body.note)
@@ -77,6 +81,10 @@ async def set_chastity(
 async def lift_chastity(
     profile_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> StandingOut:
+    try:
+        await econ_svc.get_economy(session, profile_id)
+    except econ_svc.EconomyNotFound:
+        raise _econ_404(profile_id)
     await econ_svc.lift_chastity(session, profile_id)
     await session.commit()
     return await standing(profile_id, session)

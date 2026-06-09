@@ -68,3 +68,8 @@ async def test_buy_down_debt(client):
 async def test_standing_404(client):
     r = await client.get(f"/profile/{uuid.uuid4()}/standing")
     assert r.status_code == 404
+
+
+async def test_set_chastity_unknown_profile_404(client):
+    r = await client.post(f"/profile/{uuid.uuid4()}/chastity", json={"hours": 4})
+    assert r.status_code == 404

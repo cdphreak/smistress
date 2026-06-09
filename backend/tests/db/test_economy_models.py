@@ -15,6 +15,7 @@ async def test_economy_state_defaults(session):
     assert es.merit == 0
     assert es.rank == "novice"
     assert es.tokens == 0
+    assert es.debt == 0
 
 
 async def test_chastity_timer_is_single_per_profile(session):

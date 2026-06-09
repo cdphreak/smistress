@@ -29,6 +29,8 @@ class Punishment(Base):
         Enum(PunishmentStatus, name="punishment_status"), default=PunishmentStatus.ISSUED
     )
     # Set when type is PENANCE_TASK — the Task whose PASS settles this punishment.
+    # Bare UUID (no FK), matching the codebase convention for cross-aggregate refs
+    # (cf. Task.lesson_id); task rows are only deleted via the whole-profile cascade.
     penance_task_id: Mapped[uuid.UUID | None] = mapped_column(default=None)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

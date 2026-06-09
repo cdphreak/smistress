@@ -72,6 +72,8 @@ async def execute_action(session: AsyncSession, profile_id: uuid.UUID, action: d
             }
         if tool == "set_chastity":
             hours = int(action["hours"])
+            if hours < 1:
+                return {"tool": "set_chastity", "error": "hours must be >= 1"}
             await econ_svc.extend_chastity(session, profile_id, hours=hours)
             if action.get("reason"):
                 await econ_svc.set_chastity_note(session, profile_id, str(action["reason"]))

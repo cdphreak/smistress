@@ -201,7 +201,11 @@ async def buy_down_debt(
     session: AsyncSession, profile_id: uuid.UUID, *, debt_points: int
 ) -> EconomyState:
     """Spend tokens to clear debt at a punishing rate (no merit). Clears as much as
-    both the debt balance and the token purse allow. Caller commits."""
+    both the debt balance and the token purse allow. Caller commits.
+
+    Reduces the aggregate debt balance only; it does not yet resolve individual
+    Punishment ledger rows to BOUGHT_DOWN — per-line ledger resolution lands with
+    the discipline drone unit that surfaces the ledger (M4b)."""
     if debt_points < 0:
         raise ValueError("debt_points must be non-negative")
     econ = await get_economy(session, profile_id)
