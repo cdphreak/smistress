@@ -15,8 +15,10 @@ from app.db.models.profile import SubProfile
 class Punishment(Base):
     """A debt-ledger line item (Addendum B7). Issued on a miss/fail; adds
     ``debt_amount`` to the economy's debt balance; cleared by serving penance
-    (a linked Task verified PASS) or a token buy-down. Snapshots the
-    discreetness/required-toy profile (B6/M5b) from the pool item at issue time."""
+    (a linked Task verified PASS) or a token buy-down. Also carries
+    discreetness/required-toy columns (B6/M5b) for parity with the pool item;
+    reserved for a future snapshot — the mode filter reads the pool item, not
+    this ledger row, so they are not populated at issue time."""
 
     __tablename__ = "punishment"
 
