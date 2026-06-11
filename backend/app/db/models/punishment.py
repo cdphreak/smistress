@@ -4,17 +4,19 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.enums import PunishmentStatus, PunishmentType
+from app.db.enums import Discreetness, PunishmentStatus, PunishmentType
 from app.db.models.profile import SubProfile
 
 
 class Punishment(Base):
     """A debt-ledger line item (Addendum B7). Issued on a miss/fail; adds
     ``debt_amount`` to the economy's debt balance; cleared by serving penance
-    (a linked Task verified PASS) or a token buy-down."""
+    (a linked Task verified PASS) or a token buy-down. Snapshots the
+    discreetness/required-toy profile (B6/M5b) from the pool item at issue time."""
 
     __tablename__ = "punishment"
 
@@ -25,6 +27,10 @@ class Punishment(Base):
     severity: Mapped[int] = mapped_column(default=1)  # 1 (light) .. 3 (heavy)
     reason: Mapped[str] = mapped_column(String, default="")
     debt_amount: Mapped[int] = mapped_column(default=0)
+    discreetness: Mapped[Discreetness] = mapped_column(
+        Enum(Discreetness, name="discreetness"), default=Discreetness.OVERT
+    )
+    required_toy_ids: Mapped[list] = mapped_column(JSONB, default=list)  # list[str] toy UUIDs
     status: Mapped[PunishmentStatus] = mapped_column(
         Enum(PunishmentStatus, name="punishment_status"), default=PunishmentStatus.ISSUED
     )

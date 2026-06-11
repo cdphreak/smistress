@@ -206,3 +206,44 @@ async def test_task_and_pool_discreetness_defaults(session):
     assert item.intensity == 0
     assert item.discreetness is Discreetness.OVERT
     assert item.required_toy_ids == []
+
+
+async def test_punishment_pool_discreetness_defaults(session):
+    from app.db.enums import Discreetness, PunishmentType
+    from app.db.models.batch import PunishmentPoolItem
+    from app.schemas.onboarding import ProfileCreate
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    item = PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1, reason="lines",
+    )
+    session.add(item)
+    await session.flush()
+    await session.refresh(item)
+    assert item.discreetness is Discreetness.OVERT
+    assert item.required_toy_ids == []
+
+
+async def test_punishment_ledger_discreetness_defaults(session):
+    from app.db.enums import Discreetness, PunishmentStatus, PunishmentType
+    from app.db.models.punishment import Punishment
+    from app.schemas.onboarding import ProfileCreate
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    pun = Punishment(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1,
+        reason="lines", debt_amount=5, status=PunishmentStatus.ISSUED,
+    )
+    session.add(pun)
+    await session.flush()
+    await session.refresh(pun)
+    assert pun.discreetness is Discreetness.OVERT
+    assert pun.required_toy_ids == []

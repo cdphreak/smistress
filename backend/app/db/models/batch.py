@@ -75,7 +75,8 @@ class PunishmentPoolItem(Base):
     """A pre-generated, undrawn punishment (Addendum B4 punishment pool). The
     discipline unit draws one matching the offence severity and issues it; carries
     the same merit/debt-free flavor as the drone line bank — debt stakes come from
-    the severity at issue time."""
+    the severity at issue time. Carries the discreetness/required-toy profile
+    (B6/M5b) the mode-filtered discipline draw consults."""
 
     __tablename__ = "punishment_pool_item"
 
@@ -85,6 +86,10 @@ class PunishmentPoolItem(Base):
     type: Mapped[PunishmentType] = mapped_column(Enum(PunishmentType, name="punishment_type"))
     severity: Mapped[int] = mapped_column(default=1)  # 1 (light) .. 3 (heavy)
     reason: Mapped[str] = mapped_column(String)
+    discreetness: Mapped[Discreetness] = mapped_column(
+        Enum(Discreetness, name="discreetness"), default=Discreetness.OVERT
+    )
+    required_toy_ids: Mapped[list] = mapped_column(JSONB, default=list)  # list[str] toy UUIDs
 
     consumed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
