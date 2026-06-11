@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.enums import ProofRequirement, TaskStatus
+from app.db.enums import Discreetness, ProofRequirement, TaskStatus
 from app.db.models.profile import SubProfile
 
 
@@ -29,6 +30,12 @@ class Task(Base):
     merit_reward: Mapped[int] = mapped_column(default=0)
     merit_fail_penalty: Mapped[int] = mapped_column(default=0)
     merit_miss_penalty: Mapped[int] = mapped_column(default=0)
+
+    intensity: Mapped[int] = mapped_column(default=0)  # 0-100, clamped by the ceiling
+    discreetness: Mapped[Discreetness] = mapped_column(
+        Enum(Discreetness, name="discreetness"), default=Discreetness.OVERT
+    )
+    required_toy_ids: Mapped[list] = mapped_column(JSONB, default=list)  # list[str] toy UUIDs
 
     status: Mapped[TaskStatus] = mapped_column(
         Enum(TaskStatus, name="task_status"), default=TaskStatus.ASSIGNED

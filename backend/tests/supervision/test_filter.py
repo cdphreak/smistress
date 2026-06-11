@@ -176,3 +176,33 @@ async def test_toy_flags_round_trip(session):
     assert loud.noise is True
     assert loud.visibility is True
     assert loud.discreet_capable is False
+
+
+async def test_task_and_pool_discreetness_defaults(session):
+    from app.db.enums import Discreetness, ProofRequirement
+    from app.db.models.batch import TaskPoolItem
+    from app.loop import service as loop_svc
+    from app.schemas.onboarding import ProfileCreate
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    task = await loop_svc.assign_task(
+        session, p.id, description="drill", proof_requirement=ProofRequirement.HONOR,
+    )
+    await session.refresh(task)
+    assert task.intensity == 0
+    assert task.discreetness is Discreetness.OVERT
+    assert task.required_toy_ids == []
+
+    item = TaskPoolItem(
+        profile_id=p.id, description="pooled", proof_requirement=ProofRequirement.HONOR,
+    )
+    session.add(item)
+    await session.flush()
+    await session.refresh(item)
+    assert item.intensity == 0
+    assert item.discreetness is Discreetness.OVERT
+    assert item.required_toy_ids == []
