@@ -137,7 +137,7 @@ async def standing_orders(
     task = await _active_task(session, profile_id)
     if task is None and not frozen:
         # The assignment unit drops the day's task from the pool (if any).
-        task = await batch_svc.draw_and_assign(session, profile_id)
+        task = await batch_svc.draw_and_assign(session, profile_id, now=now)
 
     econ = await econ_svc.get_economy(session, profile_id)
     lines = await _bank_lines(session, profile_id)

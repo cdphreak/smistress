@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     )
     buydown_tokens_per_debt: int = 3  # punishing: 3 tokens clears 1 debt point, no merit
     penance_merit_recovery: int = 3  # small recovery for an honest, on-time penance serve
+    task_mode_grace_hours: int = 24  # task mode: every dropped task gets this deadline
     embedding_model: str = "nomic-embed-text"  # local default (Ollama); OpenAI: text-embedding-3-small
     embedding_dim: int = 768  # nomic-embed-text dim; text-embedding-3-small = 1536
     falkordb_host: str = "localhost"

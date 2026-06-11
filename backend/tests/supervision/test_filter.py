@@ -1,0 +1,249 @@
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass
+
+from app.db.enums import Discreetness, SupervisionMode
+from app.supervision import filter as sup_filter
+
+
+@dataclass
+class _Toy:
+    id: uuid.UUID
+    discreet_capable: bool
+
+
+def _toys(*flags: bool) -> dict[str, _Toy]:
+    out = {}
+    for cap in flags:
+        tid = uuid.uuid4()
+        out[str(tid)] = _Toy(id=tid, discreet_capable=cap)
+    return out
+
+
+def test_discreetness_members():
+    assert {d.value for d in Discreetness} == {"overt", "discreet", "silent"}
+
+
+def test_mode_min_discreetness():
+    M, D = SupervisionMode, Discreetness
+    assert sup_filter.mode_min_discreetness(M.FULL) is D.OVERT
+    assert sup_filter.mode_min_discreetness(M.DISCREET) is D.DISCREET
+    assert sup_filter.mode_min_discreetness(M.HOMEOFFICE) is D.SILENT
+    assert sup_filter.mode_min_discreetness(M.TASK) is D.OVERT
+    assert sup_filter.mode_min_discreetness(M.VACATION) is D.OVERT
+
+
+def test_full_mode_allows_everything():
+    # the intensity ceiling is a safety invariant that applies in ALL modes (§9),
+    # so "everything" here means within the ceiling.
+    assert sup_filter.task_allowed(
+        SupervisionMode.FULL, discreetness=Discreetness.OVERT, intensity=100,
+        required_toy_ids=[], toys_by_id={}, intensity_ceiling=100,
+    ) is True
+
+
+def test_discreet_mode_rejects_overt_task():
+    assert sup_filter.task_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.OVERT, intensity=0,
+        required_toy_ids=[], toys_by_id={}, intensity_ceiling=100,
+    ) is False
+
+
+def test_discreet_mode_allows_discreet_and_silent():
+    for d in (Discreetness.DISCREET, Discreetness.SILENT):
+        assert sup_filter.task_allowed(
+            SupervisionMode.DISCREET, discreetness=d, intensity=0,
+            required_toy_ids=[], toys_by_id={}, intensity_ceiling=100,
+        ) is True
+
+
+def test_homeoffice_requires_silent():
+    assert sup_filter.task_allowed(
+        SupervisionMode.HOMEOFFICE, discreetness=Discreetness.DISCREET, intensity=0,
+        required_toy_ids=[], toys_by_id={}, intensity_ceiling=100,
+    ) is False
+    assert sup_filter.task_allowed(
+        SupervisionMode.HOMEOFFICE, discreetness=Discreetness.SILENT, intensity=0,
+        required_toy_ids=[], toys_by_id={}, intensity_ceiling=100,
+    ) is True
+
+
+def test_intensity_ceiling_rejects_too_intense():
+    assert sup_filter.task_allowed(
+        SupervisionMode.FULL, discreetness=Discreetness.OVERT, intensity=80,
+        required_toy_ids=[], toys_by_id={}, intensity_ceiling=50,
+    ) is False
+
+
+def test_required_toy_must_be_discreet_capable_under_discreet():
+    toys = _toys(False)  # one non-discreet toy
+    tid = next(iter(toys))
+    assert sup_filter.task_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.SILENT, intensity=0,
+        required_toy_ids=[tid], toys_by_id=toys, intensity_ceiling=100,
+    ) is False
+    toys2 = _toys(True)
+    tid2 = next(iter(toys2))
+    assert sup_filter.task_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.SILENT, intensity=0,
+        required_toy_ids=[tid2], toys_by_id=toys2, intensity_ceiling=100,
+    ) is True
+
+
+def test_missing_required_toy_rejected_under_discreet():
+    assert sup_filter.task_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.SILENT, intensity=0,
+        required_toy_ids=[str(uuid.uuid4())], toys_by_id={}, intensity_ceiling=100,
+    ) is False
+
+
+def test_required_toy_ignored_under_full():
+    # full mode never checks required-toy discreetness
+    toys = _toys(False)
+    tid = next(iter(toys))
+    assert sup_filter.task_allowed(
+        SupervisionMode.FULL, discreetness=Discreetness.OVERT, intensity=0,
+        required_toy_ids=[tid], toys_by_id=toys, intensity_ceiling=100,
+    ) is True
+
+
+def test_punishment_allowed_mirrors_discreetness_floor():
+    assert sup_filter.punishment_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.OVERT,
+        required_toy_ids=[], toys_by_id={},
+    ) is False
+    assert sup_filter.punishment_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.SILENT,
+        required_toy_ids=[], toys_by_id={},
+    ) is True
+
+
+def test_content_filter_directive_per_mode():
+    assert sup_filter.content_filter_directive(SupervisionMode.FULL) is None
+    assert "discreet" in sup_filter.content_filter_directive(SupervisionMode.DISCREET).lower()
+    assert "silent" in sup_filter.content_filter_directive(SupervisionMode.HOMEOFFICE).lower()
+    assert "deadline" in sup_filter.content_filter_directive(SupervisionMode.TASK).lower()
+    assert sup_filter.content_filter_directive(SupervisionMode.VACATION) is None
+
+
+def test_punishment_required_toy_must_be_discreet_capable():
+    toys = _toys(False)
+    tid = next(iter(toys))
+    assert sup_filter.punishment_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.SILENT,
+        required_toy_ids=[tid], toys_by_id=toys,
+    ) is False
+    toys2 = _toys(True)
+    tid2 = next(iter(toys2))
+    assert sup_filter.punishment_allowed(
+        SupervisionMode.DISCREET, discreetness=Discreetness.SILENT,
+        required_toy_ids=[tid2], toys_by_id=toys2,
+    ) is True
+
+
+async def test_toy_flags_round_trip(session):
+    from app.schemas.onboarding import ProfileCreate, ToyIn
+    from app.db.enums import ToyType
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    toy = await profile_svc.add_toy(
+        session, p.id,
+        ToyIn(name="quiet bullet", type=ToyType.VIBRATOR,
+              noise=False, visibility=False, discreet_capable=True),
+    )
+    await session.refresh(toy)
+    assert toy.noise is False
+    assert toy.visibility is False
+    assert toy.discreet_capable is True
+    # defaults are conservative: an untagged toy is not assumed discreet
+    default = await profile_svc.add_toy(
+        session, p.id, ToyIn(name="paddle", type=ToyType.PADDLE),
+    )
+    await session.refresh(default)
+    assert default.discreet_capable is False
+    # truthy noise/visibility also round-trip
+    loud = await profile_svc.add_toy(
+        session, p.id,
+        ToyIn(name="loud wand", type=ToyType.WAND,
+              noise=True, visibility=True, discreet_capable=False),
+    )
+    await session.refresh(loud)
+    assert loud.noise is True
+    assert loud.visibility is True
+    assert loud.discreet_capable is False
+
+
+async def test_task_and_pool_discreetness_defaults(session):
+    from app.db.enums import Discreetness, ProofRequirement
+    from app.db.models.batch import TaskPoolItem
+    from app.loop import service as loop_svc
+    from app.schemas.onboarding import ProfileCreate
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    task = await loop_svc.assign_task(
+        session, p.id, description="drill", proof_requirement=ProofRequirement.HONOR,
+    )
+    await session.refresh(task)
+    assert task.intensity == 0
+    assert task.discreetness is Discreetness.OVERT
+    assert task.required_toy_ids == []
+
+    item = TaskPoolItem(
+        profile_id=p.id, description="pooled", proof_requirement=ProofRequirement.HONOR,
+    )
+    session.add(item)
+    await session.flush()
+    await session.refresh(item)
+    assert item.intensity == 0
+    assert item.discreetness is Discreetness.OVERT
+    assert item.required_toy_ids == []
+
+
+async def test_punishment_pool_discreetness_defaults(session):
+    from app.db.enums import Discreetness, PunishmentType
+    from app.db.models.batch import PunishmentPoolItem
+    from app.schemas.onboarding import ProfileCreate
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    item = PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1, reason="lines",
+    )
+    session.add(item)
+    await session.flush()
+    await session.refresh(item)
+    assert item.discreetness is Discreetness.OVERT
+    assert item.required_toy_ids == []
+
+
+async def test_punishment_ledger_discreetness_defaults(session):
+    from app.db.enums import Discreetness, PunishmentStatus, PunishmentType
+    from app.db.models.punishment import Punishment
+    from app.schemas.onboarding import ProfileCreate
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    pun = Punishment(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1,
+        reason="lines", debt_amount=5, status=PunishmentStatus.ISSUED,
+    )
+    session.add(pun)
+    await session.flush()
+    await session.refresh(pun)
+    assert pun.discreetness is Discreetness.OVERT
+    assert pun.required_toy_ids == []

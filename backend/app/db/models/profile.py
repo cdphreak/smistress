@@ -73,6 +73,9 @@ class Toy(Base):
     type: Mapped[str] = mapped_column(String)
     intiface_capable: Mapped[bool] = mapped_column(default=False)
     notes: Mapped[str | None] = mapped_column(String, default=None)
+    noise: Mapped[bool] = mapped_column(default=False)  # makes audible noise
+    visibility: Mapped[bool] = mapped_column(default=False)  # conspicuous / visible
+    discreet_capable: Mapped[bool] = mapped_column(default=False)  # usable discreetly
 
     profile: Mapped[SubProfile] = relationship(back_populates="toys")
 

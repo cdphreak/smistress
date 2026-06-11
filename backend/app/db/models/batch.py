@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Enum, ForeignKey, String, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.enums import ProofRequirement, PunishmentType
+from app.db.enums import Discreetness, ProofRequirement, PunishmentType
 from app.db.models.profile import SubProfile
 
 
@@ -15,8 +16,8 @@ class TaskPoolItem(Base):
     """A pre-generated, undropped task template (Addendum B4 task pool).
 
     The assignment drone draws one and materializes it into a real Task while
-    offline — no LLM present. Carries merit stakes only; debt stakes (M4) and
-    the intensity/discreetness profile (B6/M5) are added by later milestones.
+    offline — no LLM present. Carries merit stakes plus the intensity/discreetness
+    /required-toy profile (B6/M5b) the mode-filtered draw consults.
     """
 
     __tablename__ = "task_pool_item"
@@ -33,6 +34,12 @@ class TaskPoolItem(Base):
     merit_reward: Mapped[int] = mapped_column(default=0)
     merit_fail_penalty: Mapped[int] = mapped_column(default=0)
     merit_miss_penalty: Mapped[int] = mapped_column(default=0)
+
+    intensity: Mapped[int] = mapped_column(default=0)  # 0-100, clamped by the ceiling
+    discreetness: Mapped[Discreetness] = mapped_column(
+        Enum(Discreetness, name="discreetness"), default=Discreetness.OVERT
+    )
+    required_toy_ids: Mapped[list] = mapped_column(JSONB, default=list)  # list[str] toy UUIDs
 
     consumed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -68,7 +75,8 @@ class PunishmentPoolItem(Base):
     """A pre-generated, undrawn punishment (Addendum B4 punishment pool). The
     discipline unit draws one matching the offence severity and issues it; carries
     the same merit/debt-free flavor as the drone line bank — debt stakes come from
-    the severity at issue time."""
+    the severity at issue time. Carries the discreetness/required-toy profile
+    (B6/M5b) the mode-filtered discipline draw consults."""
 
     __tablename__ = "punishment_pool_item"
 
@@ -78,6 +86,10 @@ class PunishmentPoolItem(Base):
     type: Mapped[PunishmentType] = mapped_column(Enum(PunishmentType, name="punishment_type"))
     severity: Mapped[int] = mapped_column(default=1)  # 1 (light) .. 3 (heavy)
     reason: Mapped[str] = mapped_column(String)
+    discreetness: Mapped[Discreetness] = mapped_column(
+        Enum(Discreetness, name="discreetness"), default=Discreetness.OVERT
+    )
+    required_toy_ids: Mapped[list] = mapped_column(JSONB, default=list)  # list[str] toy UUIDs
 
     consumed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

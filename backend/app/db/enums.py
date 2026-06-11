@@ -98,3 +98,12 @@ class SupervisionMode(str, enum.Enum):
     TASK = "task"  # only tasks with graceful fulfillment timers
     HOMEOFFICE = "homeoffice"  # working/meetings: discreetly-usable content only
     VACATION = "vacation"  # training paused; economy frozen
+
+
+class Discreetness(str, enum.Enum):
+    """How quiet/covert a piece of content is (Addendum B6). Ordinal: overt is the
+    least discreet, silent the most. The active supervision mode sets a floor."""
+
+    OVERT = "overt"  # loud and/or visible — full supervision only
+    DISCREET = "discreet"  # quiet, low-visibility — safe with family around
+    SILENT = "silent"  # fully covert — safe in meetings / homeoffice

@@ -20,6 +20,7 @@ async def test_state_block_shows_supervision_mode_and_note(session):
     block = await persona_svc.build_authoritative_state_block(session, p.id)
     assert "SUPERVISION: homeoffice" in block
     assert "meetings till 5" in block
+    assert "CONTENT FILTER" in block  # homeoffice emits a content-filter directive
 
 
 async def test_state_block_vacation_directive(session):
@@ -28,3 +29,17 @@ async def test_state_block_vacation_directive(session):
     block = await persona_svc.build_authoritative_state_block(session, p.id)
     assert "vacation" in block.lower()
     assert "paused" in block.lower()
+
+
+async def test_state_block_shows_content_filter_directive(session):
+    p = await _profile(session)
+    await sup_svc.set_mode(session, p.id, SupervisionMode.DISCREET)
+    block = await persona_svc.build_authoritative_state_block(session, p.id)
+    assert "CONTENT FILTER" in block
+    assert "discreet" in block.lower()
+
+
+async def test_state_block_no_directive_under_full(session):
+    p = await _profile(session)  # default FULL
+    block = await persona_svc.build_authoritative_state_block(session, p.id)
+    assert "CONTENT FILTER" not in block
