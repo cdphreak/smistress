@@ -148,6 +148,9 @@ async def add_toy(session: AsyncSession, profile_id: uuid.UUID, data: ToyIn) -> 
         type=data.type.value,  # store the plain enum value in the String column
         intiface_capable=data.intiface_capable,
         notes=data.notes,
+        noise=data.noise,
+        visibility=data.visibility,
+        discreet_capable=data.discreet_capable,
     )
     session.add(toy)
     await session.flush()

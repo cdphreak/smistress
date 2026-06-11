@@ -140,3 +140,39 @@ def test_punishment_required_toy_must_be_discreet_capable():
         SupervisionMode.DISCREET, discreetness=Discreetness.SILENT,
         required_toy_ids=[tid2], toys_by_id=toys2,
     ) is True
+
+
+async def test_toy_flags_round_trip(session):
+    from app.schemas.onboarding import ProfileCreate, ToyIn
+    from app.db.enums import ToyType
+    from app.services import profile as profile_svc
+
+    p = await profile_svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    toy = await profile_svc.add_toy(
+        session, p.id,
+        ToyIn(name="quiet bullet", type=ToyType.VIBRATOR,
+              noise=False, visibility=False, discreet_capable=True),
+    )
+    await session.refresh(toy)
+    assert toy.noise is False
+    assert toy.visibility is False
+    assert toy.discreet_capable is True
+    # defaults are conservative: an untagged toy is not assumed discreet
+    default = await profile_svc.add_toy(
+        session, p.id, ToyIn(name="paddle", type=ToyType.PADDLE),
+    )
+    await session.refresh(default)
+    assert default.discreet_capable is False
+    # truthy noise/visibility also round-trip
+    loud = await profile_svc.add_toy(
+        session, p.id,
+        ToyIn(name="loud wand", type=ToyType.WAND,
+              noise=True, visibility=True, discreet_capable=False),
+    )
+    await session.refresh(loud)
+    assert loud.noise is True
+    assert loud.visibility is True
+    assert loud.discreet_capable is False

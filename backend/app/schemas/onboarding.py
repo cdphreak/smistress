@@ -73,6 +73,9 @@ class ToyIn(BaseModel):
     type: ToyType
     intiface_capable: bool = False
     notes: str | None = None
+    noise: bool = False
+    visibility: bool = False
+    discreet_capable: bool = False
 
 
 class ToyOut(ToyIn):
