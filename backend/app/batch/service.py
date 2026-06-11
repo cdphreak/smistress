@@ -6,14 +6,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.batch.prompt import build_generation_prompt
 from app.config import Settings
-from app.db.enums import ProofRequirement, PunishmentType, SupervisionMode
+from app.db.enums import Discreetness, ProofRequirement, PunishmentType, SupervisionMode
 from app.db.models.batch import DroneLine, PunishmentPoolItem, TaskPoolItem
 from app.db.models.character import CharacterModel
 from app.db.models.economy import EconomyState
@@ -141,10 +141,18 @@ class _TaskGen(BaseModel):
     merit_fail_penalty: int = 0
     merit_miss_penalty: int = 0
     difficulty: str = "standard"
+    intensity: int = Field(default=0, ge=0, le=100)
+    discreetness: Discreetness = Discreetness.OVERT
+    required_toy_ids: list[str] = []
 
     @field_validator("proof", "difficulty", mode="before")
     @classmethod
     def _lower(cls, v: object) -> object:
+        return str(v).strip().lower() if v is not None else v
+
+    @field_validator("discreetness", mode="before")
+    @classmethod
+    def _discreetness(cls, v: object) -> object:
         return str(v).strip().lower() if v is not None else v
 
 
@@ -191,6 +199,8 @@ class _PunishmentGen(BaseModel):
     type: str
     severity: int
     reason: str
+    discreetness: Discreetness = Discreetness.OVERT
+    required_toy_ids: list[str] = []
 
     @field_validator("type", mode="before")
     @classmethod
@@ -210,6 +220,11 @@ class _PunishmentGen(BaseModel):
         if v not in (1, 2, 3):
             raise ValueError("bad severity")
         return v
+
+    @field_validator("discreetness", mode="before")
+    @classmethod
+    def _discreetness(cls, v: object) -> object:
+        return str(v).strip().lower() if v is not None else v
 
 
 def parse_batch(content: str) -> tuple[list[_TaskGen], list[_LineGen], list[_PunishmentGen]]:
@@ -308,6 +323,9 @@ async def generate_batch(
             merit_reward=gen.merit_reward,
             merit_fail_penalty=gen.merit_fail_penalty,
             merit_miss_penalty=gen.merit_miss_penalty,
+            intensity=gen.intensity,
+            discreetness=gen.discreetness,
+            required_toy_ids=gen.required_toy_ids,
         ))
         added_tasks += 1
     added_lines = 0
@@ -328,6 +346,8 @@ async def generate_batch(
             type=PunishmentType(gen.type),
             severity=gen.severity,
             reason=gen.reason,
+            discreetness=gen.discreetness,
+            required_toy_ids=gen.required_toy_ids,
         ))
         added_punishments += 1
     await session.flush()
