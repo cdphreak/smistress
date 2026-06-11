@@ -76,3 +76,79 @@ async def test_task_carries_pool_profile(session):
     assert task.discreetness is Discreetness.SILENT
     assert task.required_toy_ids == [toy_id]
     assert task.deadline is None  # FULL mode does not stamp a deadline
+
+
+async def test_discipline_skips_overt_punishment_under_discreet(session):
+    from app.db.models.batch import PunishmentPoolItem
+    from app.db.enums import PunishmentType
+    from app.discipline import service as disc_svc
+
+    p = await _profile(session)
+    await sup_svc.set_mode(session, p.id, SupervisionMode.DISCREET)
+    session.add(PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1,
+        reason="loud lines", discreetness=Discreetness.OVERT,
+    ))
+    session.add(PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1,
+        reason="silent kneeling", discreetness=Discreetness.SILENT,
+    ))
+    await session.flush()
+    item = await disc_svc.draw_punishment(session, p.id, severity=1)
+    assert item is not None
+    assert item.reason == "silent kneeling"
+
+
+async def test_discipline_draw_none_when_all_forbidden(session):
+    from app.db.models.batch import PunishmentPoolItem
+    from app.db.enums import PunishmentType
+    from app.discipline import service as disc_svc
+
+    p = await _profile(session)
+    await sup_svc.set_mode(session, p.id, SupervisionMode.HOMEOFFICE)
+    session.add(PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1,
+        reason="discreet only", discreetness=Discreetness.DISCREET,  # not silent
+    ))
+    await session.flush()
+    assert await disc_svc.draw_punishment(session, p.id, severity=1) is None
+
+
+async def test_discipline_severity_fallback_respects_filter(session):
+    from app.db.models.batch import PunishmentPoolItem
+    from app.db.enums import PunishmentType
+    from app.discipline import service as disc_svc
+
+    p = await _profile(session)
+    await sup_svc.set_mode(session, p.id, SupervisionMode.DISCREET)
+    # requested severity (2) exists but is OVERT -> blocked; a SILENT severity-1 is allowed
+    session.add(PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=2,
+        reason="loud severity-2", discreetness=Discreetness.OVERT,
+    ))
+    session.add(PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1,
+        reason="silent severity-1", discreetness=Discreetness.SILENT,
+    ))
+    await session.flush()
+    item = await disc_svc.draw_punishment(session, p.id, severity=2)
+    assert item is not None
+    assert item.reason == "silent severity-1"  # fell back to the allowed other-severity item
+
+
+async def test_draw_and_issue_falls_back_to_chastity_under_restrictive_mode(session):
+    from app.db.models.batch import PunishmentPoolItem
+    from app.db.enums import PunishmentType
+    from app.discipline import service as disc_svc
+
+    p = await _profile(session)
+    await sup_svc.set_mode(session, p.id, SupervisionMode.HOMEOFFICE)
+    # pool has only a non-silent punishment -> forbidden under homeoffice
+    session.add(PunishmentPoolItem(
+        profile_id=p.id, type=PunishmentType.PENANCE_TASK, severity=1,
+        reason="overt", discreetness=Discreetness.OVERT,
+    ))
+    await session.flush()
+    punishment = await disc_svc.draw_and_issue(session, p.id, severity=1)
+    assert punishment is not None
+    assert punishment.type is PunishmentType.CHASTITY_EXTENSION  # mode-safe deterministic fallback

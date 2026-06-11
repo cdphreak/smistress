@@ -13,6 +13,8 @@ from app.db.models.punishment import Punishment
 from app.db.models.task import Task
 from app.economy import service as econ_svc
 from app.memory import service as mem_svc
+from app.services import profile as profile_svc
+from app.supervision import filter as sup_filter
 
 _settings = Settings()
 
@@ -93,20 +95,36 @@ _FALLBACK_TYPE = PunishmentType.CHASTITY_EXTENSION
 async def draw_punishment(
     session: AsyncSession, profile_id: uuid.UUID, *, severity: int
 ) -> PunishmentPoolItem | None:
-    """Draw an unconsumed pooled punishment, preferring the requested severity and
-    falling back to any. Marks it consumed. Returns None if the pool is empty."""
+    """Draw an unconsumed pooled punishment the active mode allows, preferring the
+    requested severity and falling back to any. Marks it consumed. Returns None when
+    the pool has no mode-allowed item (caller then issues a deterministic fallback)."""
+    profile = await profile_svc.get_profile(session, profile_id)
+    mode = profile.supervision_mode
+    toys = await profile_svc.list_toys(session, profile_id)
+    toys_by_id = {str(t.id): t for t in toys}
+
+    def _allowed(it: PunishmentPoolItem) -> bool:
+        return sup_filter.punishment_allowed(
+            mode,
+            discreetness=it.discreetness,
+            required_toy_ids=it.required_toy_ids,
+            toys_by_id=toys_by_id,
+        )
+
     base = select(PunishmentPoolItem).where(
         PunishmentPoolItem.profile_id == profile_id,
         PunishmentPoolItem.consumed.is_(False),
-    )
-    item = (await session.execute(
+    ).order_by(PunishmentPoolItem.created_at, PunishmentPoolItem.id)
+
+    severity_items = (await session.execute(
         base.where(PunishmentPoolItem.severity == severity)
-        .order_by(PunishmentPoolItem.created_at, PunishmentPoolItem.id).limit(1)
-    )).scalars().first()
+    )).scalars().all()
+    item = next((it for it in severity_items if _allowed(it)), None)
     if item is None:
-        item = (await session.execute(
-            base.order_by(PunishmentPoolItem.created_at, PunishmentPoolItem.id).limit(1)
-        )).scalars().first()
+        other_items = (await session.execute(
+            base.where(PunishmentPoolItem.severity != severity)
+        )).scalars().all()
+        item = next((it for it in other_items if _allowed(it)), None)
     if item is not None:
         item.consumed = True
         await session.flush()
