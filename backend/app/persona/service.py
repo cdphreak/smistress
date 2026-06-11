@@ -20,6 +20,7 @@ from app.safety import detect
 from app.safety import filter as safety_filter
 from app.safety import service as safety_svc
 from app.services import profile as profile_svc
+from app.supervision import filter as sup_filter
 
 # Task statuses that count as "resolved" history for mood, newest first.
 _RESOLVED = (TaskStatus.VERIFIED_PASS, TaskStatus.VERIFIED_FAIL, TaskStatus.MISSED)
@@ -98,6 +99,9 @@ async def build_authoritative_state_block(session: AsyncSession, profile_id: uui
     _sup_note = (profile.supervision_notes or {}).get(profile.supervision_mode.value, "").strip()
     if _sup_note:
         lines.append(f"WHAT'S POSSIBLE NOW: {_sup_note}")
+    _filter_directive = sup_filter.content_filter_directive(profile.supervision_mode)
+    if _filter_directive is not None:
+        lines.append(_filter_directive)
     if active_task is not None:
         lines.append(
             f"ACTIVE TASK: {active_task.description} "
