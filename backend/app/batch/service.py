@@ -4,7 +4,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel, ValidationError, field_validator
 from sqlalchemy import func, select
@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.batch.prompt import build_generation_prompt
 from app.config import Settings
-from app.db.enums import ProofRequirement, PunishmentType
+from app.db.enums import ProofRequirement, PunishmentType, SupervisionMode
 from app.db.models.batch import DroneLine, PunishmentPoolItem, TaskPoolItem
 from app.db.models.character import CharacterModel
 from app.db.models.economy import EconomyState
@@ -21,6 +21,8 @@ from app.db.models.profile import SubProfile
 from app.db.models.task import Task
 from app.llm.provider import LLMProvider
 from app.loop import service as loop_svc
+from app.services import profile as profile_svc
+from app.supervision import filter as sup_filter
 
 # Module-level Settings instance, matching the convention in availability/service.py.
 _settings = Settings()
@@ -340,23 +342,52 @@ async def generate_batch(
     )
 
 
-async def _next_pool_item(session: AsyncSession, profile_id: uuid.UUID) -> TaskPoolItem | None:
-    return (await session.execute(
+async def _unconsumed_pool_items(
+    session: AsyncSession, profile_id: uuid.UUID
+) -> list[TaskPoolItem]:
+    return list((await session.execute(
         select(TaskPoolItem)
         .where(TaskPoolItem.profile_id == profile_id, TaskPoolItem.consumed.is_(False))
         # id tiebreak: items from one generate_batch share created_at (server now()).
         .order_by(TaskPoolItem.created_at, TaskPoolItem.id)
-        .limit(1)
-    )).scalars().first()
+    )).scalars().all())
 
 
-async def draw_and_assign(session: AsyncSession, profile_id: uuid.UUID) -> Task | None:
-    """The assignment drone drops the next pooled task as a real Task (Addendum
-    B3/B4) — no LLM. Marks the pool item consumed. Returns None if the pool is
-    empty. Caller commits."""
-    item = await _next_pool_item(session, profile_id)
+async def draw_and_assign(
+    session: AsyncSession, profile_id: uuid.UUID, *, now: datetime | None = None
+) -> Task | None:
+    """The assignment drone drops the next *mode-allowed* pooled task as a real Task
+    (Addendum B3/B4/B6) — no LLM. Skips items the active supervision mode forbids
+    (discreetness floor, intensity ceiling, required-toy discretion); under task mode
+    stamps a graceful deadline; carries the pool item's intensity/discreetness/required
+    toys onto the Task. Returns None when nothing in the pool is allowed. Caller commits."""
+    now = now or datetime.now(timezone.utc)
+    profile = await profile_svc.get_profile(session, profile_id)
+    mode = profile.supervision_mode
+    toys = await profile_svc.list_toys(session, profile_id)
+    toys_by_id = {str(t.id): t for t in toys}
+
+    item = next(
+        (
+            c for c in await _unconsumed_pool_items(session, profile_id)
+            if sup_filter.task_allowed(
+                mode,
+                discreetness=c.discreetness,
+                intensity=c.intensity,
+                required_toy_ids=c.required_toy_ids,
+                toys_by_id=toys_by_id,
+                intensity_ceiling=profile.intensity_ceiling,
+            )
+        ),
+        None,
+    )
     if item is None:
         return None
+
+    deadline = (
+        now + timedelta(hours=_settings.task_mode_grace_hours)
+        if mode is SupervisionMode.TASK else None
+    )
     # NB: item.difficulty is retained on the pool row for future use; Task carries
     # no difficulty column yet, so it is intentionally not propagated here.
     task = await loop_svc.assign_task(
@@ -364,10 +395,14 @@ async def draw_and_assign(session: AsyncSession, profile_id: uuid.UUID) -> Task 
         profile_id,
         description=item.description,
         proof_requirement=item.proof_requirement,
+        deadline=deadline,
         merit_reward=item.merit_reward,
         merit_fail_penalty=item.merit_fail_penalty,
         merit_miss_penalty=item.merit_miss_penalty,
     )
+    task.intensity = item.intensity
+    task.discreetness = item.discreetness
+    task.required_toy_ids = list(item.required_toy_ids or [])
     item.consumed = True
     await session.flush()
     return task
