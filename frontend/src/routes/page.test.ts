@@ -29,6 +29,8 @@ vi.mock('$lib/api/drones', () => ({
     notices: [{ unit: 'assignment', line: 'No standing assignment. Await Mistress.' }]
   }))
 }));
+// store-level mock: keeps onMount's supervision.refresh() a synchronous no-op so it doesn't
+// interleave with chat.load() in the online test (API-level mock causes that test to fail).
 vi.mock('$lib/stores/supervision.svelte', () => ({
   supervision: { refresh: vi.fn(), mode: 'full', notes: {}, setMode: vi.fn(), setNote: vi.fn() }
 }));
@@ -53,6 +55,7 @@ import { getAvailability } from '$lib/api/availability';
 import { ApiError } from '$lib/api/client';
 import { sendMessage } from '$lib/api/chat';
 import { getStandingOrders } from '$lib/api/drones';
+import { supervision } from '$lib/stores/supervision.svelte';
 
 beforeEach(() => {
   session.setProfileId('p1');
@@ -70,6 +73,9 @@ test('online: shows the dossier and sends a message', async () => {
   });
   render(Page);
   expect(await screen.findByText(/cool · exacting/)).toBeInTheDocument();
+
+  // regression: supervision.refresh() must be called during onMount
+  await vi.waitFor(() => expect(supervision.refresh).toHaveBeenCalled());
 
   const input = screen.getByPlaceholderText(/say something/i) as HTMLTextAreaElement;
   input.value = 'what now?';
