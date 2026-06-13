@@ -170,7 +170,7 @@
           {#each profile.toys as t}
             <li>
               <span>{t.name}</span> · {t.type}
-              {#if t.discreet_capable}· discreet{/if}{#if t.noise}· noisy{/if}{#if t.visibility}· visible{/if}
+              {#if t.discreet_capable} · discreet{/if}{#if t.noise} · noisy{/if}{#if t.visibility} · visible{/if}
               <button class="edit small" onclick={() => openToyEdit(t)}>Edit</button>
             </li>
           {/each}

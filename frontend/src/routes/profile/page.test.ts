@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within, fireEvent } from '@testing-library/svelte';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 vi.mock('$lib/api/profile', () => ({
@@ -45,4 +45,22 @@ test('shows toy discreetness flags', async () => {
   render(Page);
   expect(await screen.findByText('Apex')).toBeInTheDocument();
   expect(screen.getByText(/discreet/i)).toBeInTheDocument();
+});
+
+test('editing a toy calls updateToy, not addToy', async () => {
+  const { updateToy, addToy } = await import('$lib/api/profile');
+  render(Page);
+  // wait for the toy list to render
+  const apexEl = await screen.findByText('Apex');
+  // scope to the <li> containing the Apex toy to avoid ambiguous Edit buttons
+  const toyLi = apexEl.closest('li')!;
+  // open the per-toy edit form
+  await fireEvent.click(within(toyLi).getByRole('button', { name: /edit/i }));
+  // the Toys edit form shows a "Save" button (edit mode) prefilled from the toy
+  const save = await screen.findByRole('button', { name: /save/i });
+  await fireEvent.click(save);
+  await vi.waitFor(() => expect(updateToy).toHaveBeenCalled());
+  expect(addToy).not.toHaveBeenCalled();
+  // it should target the edited toy's id ('t1' in the fixture)
+  expect((updateToy as any).mock.calls[0][1]).toBe('t1');
 });
