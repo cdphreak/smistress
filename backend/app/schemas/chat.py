@@ -29,6 +29,8 @@ class DispositionBlock(BaseModel):
 class ActiveTask(BaseModel):
     description: str
     status: str
+    intensity: int
+    discreetness: str
 
 
 class ChastityBlock(BaseModel):
@@ -45,3 +47,4 @@ class DossierOut(BaseModel):
     disposition: DispositionBlock
     active_task: ActiveTask | None
     chastity: ChastityBlock
+    supervision_mode: str
