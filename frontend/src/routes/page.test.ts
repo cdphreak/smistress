@@ -29,6 +29,9 @@ vi.mock('$lib/api/drones', () => ({
     notices: [{ unit: 'assignment', line: 'No standing assignment. Await Mistress.' }]
   }))
 }));
+vi.mock('$lib/stores/supervision.svelte', () => ({
+  supervision: { refresh: vi.fn(), mode: 'full', notes: {}, setMode: vi.fn(), setNote: vi.fn() }
+}));
 vi.mock('$lib/api/safety', () => ({
   safeword: vi.fn(async () => ({
     scene_halted: true,
