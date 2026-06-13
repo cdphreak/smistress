@@ -8,13 +8,14 @@ vi.mock('$lib/api/profile', () => ({
     aftercare_prefs: 'tea',
     archetype_scores: { submissive: 80, slave: 20 },
     kinks: [{ kink: 'bondage', rating: 'favorite' }],
-    toys: [{ name: 'Apex', type: 'vibrator' }],
+    toys: [{ id: 't1', name: 'Apex', type: 'vibrator', noise: false, visibility: false, discreet_capable: true, intiface_capable: false }],
     goals: [{ title: 'Posture', description: '', status: 'active' }],
     so_context: { description: 'partner', values: null, dynamic: null },
     character: { honorific: 'Headmistress', address_term: 'student' }
   })),
   putKinks: vi.fn(),
   addToy: vi.fn(),
+  updateToy: vi.fn(),
   addGoal: vi.fn(),
   putSoContext: vi.fn(),
   putPreferences: vi.fn()
@@ -38,4 +39,10 @@ test('renders the assembled profile after load', async () => {
   expect(await screen.findByText('Headmistress')).toBeInTheDocument();
   expect(screen.getByText(/submissive/i)).toBeInTheDocument();
   expect(screen.getByText('Apex')).toBeInTheDocument();
+});
+
+test('shows toy discreetness flags', async () => {
+  render(Page);
+  expect(await screen.findByText('Apex')).toBeInTheDocument();
+  expect(screen.getByText(/discreet/i)).toBeInTheDocument();
 });

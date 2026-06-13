@@ -6,10 +6,19 @@ export const submitArchetype = (id: string, answers: Record<string, number>) =>
   api.post(`/api/profile/${id}/archetype`, { answers });
 export const putKinks = (id: string, entries: { kink: string; rating: KinkRating }[]) =>
   api.put(`/api/profile/${id}/kinks`, { entries });
-export const addToy = (
-  id: string,
-  toy: { name: string; type: string; intiface_capable?: boolean; notes?: string }
-) => api.post(`/api/profile/${id}/toys`, toy);
+type ToyInput = {
+  name: string;
+  type: string;
+  intiface_capable?: boolean;
+  notes?: string;
+  noise?: boolean;
+  visibility?: boolean;
+  discreet_capable?: boolean;
+};
+export const addToy = (id: string, toy: ToyInput) =>
+  api.post(`/api/profile/${id}/toys`, toy);
+export const updateToy = (id: string, toyId: string, patch: Partial<ToyInput>) =>
+  api.patch(`/api/profile/${id}/toys/${toyId}`, patch);
 export const addGoal = (id: string, goal: { title: string; description?: string }) =>
   api.post(`/api/profile/${id}/goals`, goal);
 export const putSoContext = (
