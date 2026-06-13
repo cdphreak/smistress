@@ -20,7 +20,7 @@
       <span class="ledger">{data.rank} · merit {data.merit} · tokens {data.tokens} · debt {data.debt}</span>
       <span class="task">
         {#if data.active_task}
-          {data.active_task.description} · intensity {data.active_task.intensity} · <span aria-hidden="true">{data.active_task.discreetness}</span>
+          {data.active_task.description} · intensity {data.active_task.intensity} · {data.active_task.discreetness}
         {:else}
           no active task
         {/if}

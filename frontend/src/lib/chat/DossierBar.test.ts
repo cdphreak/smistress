@@ -30,7 +30,7 @@ test('shows rank, disposition line, mode badge and task tags', () => {
   render(DossierBar, { data });
   expect(screen.getByText(/adept/i)).toBeInTheDocument();
   expect(screen.getByText(/cool · exacting/)).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /discreet/i })).toBeInTheDocument(); // mode badge
+  expect(screen.getByRole('button', { name: /mode · discreet/i })).toBeInTheDocument(); // mode badge
   expect(screen.getByText(/intensity 40/i)).toBeInTheDocument();
 });
 
