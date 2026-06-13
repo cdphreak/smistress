@@ -93,3 +93,33 @@ async def test_build_dossier_reflects_active_chastity_lock(session):
     d = await chat_svc.build_dossier(session, p.id)
     assert d["chastity"]["locked"] is True
     assert d["chastity"]["seconds_remaining"] > 0
+
+
+async def test_build_dossier_surfaces_mode_and_task_tags(session):
+    from app.db.enums import Discreetness, ProofRequirement, SupervisionMode
+    from app.db.models.task import Task
+    from app.supervision import service as sup_svc
+
+    p = await _profile(session)
+    await sup_svc.set_mode(session, p.id, SupervisionMode.DISCREET)
+    session.add(
+        Task(
+            profile_id=p.id,
+            description="Quiet kneel",
+            proof_requirement=ProofRequirement.HONOR,
+            intensity=40,
+            discreetness=Discreetness.DISCREET,
+        )
+    )
+    await session.flush()
+
+    d = await chat_svc.build_dossier(session, p.id)
+    assert d["supervision_mode"] == "discreet"
+    assert d["active_task"]["intensity"] == 40
+    assert d["active_task"]["discreetness"] == "discreet"
+
+
+async def test_build_dossier_mode_defaults_to_full(session):
+    p = await _profile(session)
+    d = await chat_svc.build_dossier(session, p.id)
+    assert d["supervision_mode"] == "full"

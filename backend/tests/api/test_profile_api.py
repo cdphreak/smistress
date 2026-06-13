@@ -1,3 +1,5 @@
+import uuid
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
@@ -177,6 +179,26 @@ async def test_update_preferences(client):
 
 
 async def test_update_preferences_404(client):
-    import uuid
     r = await client.put(f"/profile/{uuid.uuid4()}/preferences", json={"intensity_ceiling": 50})
+    assert r.status_code == 404
+
+
+async def test_patch_toy_updates_flags(client):
+    pid = await _new_profile(client)
+    r = await client.post(f"/profile/{pid}/toys", json={"name": "Apex", "type": "vibrator"})
+    toy_id = r.json()["id"]
+
+    r = await client.patch(
+        f"/profile/{pid}/toys/{toy_id}", json={"discreet_capable": True, "noise": True}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["discreet_capable"] is True
+    assert body["noise"] is True
+    assert body["visibility"] is False
+
+
+async def test_patch_toy_unknown_id_404(client):
+    pid = await _new_profile(client)
+    r = await client.patch(f"/profile/{pid}/toys/{uuid.uuid4()}", json={"noise": True})
     assert r.status_code == 404

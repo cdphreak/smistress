@@ -6,7 +6,7 @@
   import SoContext from '$lib/onboarding/SoContext.svelte';
   import Preferences from '$lib/onboarding/Preferences.svelte';
   import { session } from '$lib/stores/session.svelte';
-  import { getProfile, putKinks, addToy, addGoal, putSoContext, putPreferences, type KinkRating } from '$lib/api/profile';
+  import { getProfile, putKinks, addToy, updateToy, addGoal, putSoContext, putPreferences, type KinkRating } from '$lib/api/profile';
   import { getQuestionnaire } from '$lib/api/onboarding';
 
   type Kink = { kink: string; rating: KinkRating };
@@ -15,7 +15,15 @@
     aftercare_prefs: string | null;
     archetype_scores: Record<string, number>;
     kinks: Kink[];
-    toys: { name: string; type: string }[];
+    toys: {
+      id: string;
+      name: string;
+      type: string;
+      noise: boolean;
+      visibility: boolean;
+      discreet_capable: boolean;
+      intiface_capable: boolean;
+    }[];
     goals: { title: string; description?: string }[];
     so_context: { description?: string; values?: string; dynamic?: string } | null;
     character: { honorific: string; address_term: string };
@@ -26,6 +34,7 @@
   let toyTypes = $state<string[]>([]);
   let editing = $state<string | null>(null);
   let saved = $state<string | null>(null);
+  let editingToyId = $state<string | null>(null);
 
   async function load() {
     if (!session.profileId) return;
@@ -61,11 +70,23 @@
     await load();
     flash('kinks');
   }
-  async function onToy(toy: { name: string; type: string; intiface_capable?: boolean } | null) {
-    if (toy) await addToy(session.profileId!, toy);
+  async function onToy(toy: {
+    name: string; type: string; intiface_capable?: boolean;
+    noise?: boolean; visibility?: boolean; discreet_capable?: boolean;
+  } | null) {
+    if (toy) {
+      if (editingToyId) await updateToy(session.profileId!, editingToyId, toy);
+      else await addToy(session.profileId!, toy);
+    }
     editing = null;
+    editingToyId = null;
     await load();
     flash('toys');
+  }
+  async function openToyEdit(toy: Profile['toys'][number]) {
+    await ensureVocab();
+    editingToyId = toy.id;
+    editing = 'toys';
   }
   async function onGoal(goal: { title: string; description?: string } | null) {
     if (goal) await addGoal(session.profileId!, goal);
@@ -136,12 +157,24 @@
     <section>
       <div class="row">
         <h2 class="label">Toys {#if saved === 'toys'}<span class="ok">saved</span>{/if}</h2>
-        <button class="edit" onclick={openToys}>Add</button>
+        <button class="edit" onclick={() => { editingToyId = null; openToys(); }}>Add</button>
       </div>
       {#if editing === 'toys'}
-        <Toys types={toyTypes} onnext={onToy} />
+        <Toys
+          types={toyTypes}
+          onnext={onToy}
+          initial={editingToyId ? (profile.toys.find((t) => t.id === editingToyId) ?? null) : null}
+        />
       {:else}
-        <ul class="list">{#each profile.toys as t}<li><span>{t.name}</span> · {t.type}</li>{/each}</ul>
+        <ul class="list">
+          {#each profile.toys as t}
+            <li>
+              <span>{t.name}</span> · {t.type}
+              {#if t.discreet_capable} · discreet{/if}{#if t.noise} · noisy{/if}{#if t.visibility} · visible{/if}
+              <button class="edit small" onclick={() => openToyEdit(t)}>Edit</button>
+            </li>
+          {/each}
+        </ul>
       {/if}
     </section>
 
@@ -210,6 +243,11 @@
     border: 1px solid var(--paper);
     padding: 6px 12px;
     cursor: pointer;
+  }
+  .edit.small {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    margin-left: 6px;
   }
   .ok {
     color: var(--accent);

@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/profile/{profile_id}/toys/{toy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Toy */
+        patch: operations["update_toy_profile__profile_id__toys__toy_id__patch"];
+        trace?: never;
+    };
     "/profile/{profile_id}/goals": {
         parameters: {
             query?: never;
@@ -366,7 +383,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/profile/{profile_id}/denial-timer": {
+    "/profile/{profile_id}/chastity": {
         parameters: {
             query?: never;
             header?: never;
@@ -375,15 +392,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set Denial Timer */
-        post: operations["set_denial_timer_profile__profile_id__denial_timer_post"];
+        /** Set Chastity */
+        post: operations["set_chastity_profile__profile_id__chastity_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/profile/{profile_id}/denial-timer/clear": {
+    "/profile/{profile_id}/chastity/lift": {
         parameters: {
             query?: never;
             header?: never;
@@ -392,8 +409,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Clear Denial Timers */
-        post: operations["clear_denial_timers_profile__profile_id__denial_timer_clear_post"];
+        /** Lift Chastity */
+        post: operations["lift_chastity_profile__profile_id__chastity_lift_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/debt/buy-down": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Buy Down Debt */
+        post: operations["buy_down_debt_profile__profile_id__debt_buy_down_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -553,6 +587,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/llm/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Heartbeat */
+        post: operations["heartbeat_llm_heartbeat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/llm/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Availability */
+        get: operations["availability_llm_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/batch/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Batch */
+        post: operations["generate_batch_profile__profile_id__batch_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/batch/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Batch Status */
+        get: operations["batch_status_profile__profile_id__batch_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/standing-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Standing Orders */
+        get: operations["standing_orders_profile__profile_id__standing_orders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/supervision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Supervision */
+        get: operations["get_supervision_profile__profile_id__supervision_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/supervision/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Mode */
+        put: operations["set_mode_profile__profile_id__supervision_mode_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile/{profile_id}/supervision/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Note */
+        put: operations["set_note_profile__profile_id__supervision_note_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -614,6 +784,10 @@ export interface components {
             description: string;
             /** Status */
             status: string;
+            /** Intensity */
+            intensity: number;
+            /** Discreetness */
+            discreetness: string;
         };
         /** ArchetypeResultOut */
         ArchetypeResultOut: {
@@ -628,6 +802,19 @@ export interface components {
             answers?: {
                 [key: string]: number;
             };
+        };
+        /** AvailabilityOut */
+        AvailabilityOut: {
+            state: components["schemas"]["LLMAvailability"];
+            /** Online */
+            online: boolean;
+            /** Last Heartbeat At */
+            last_heartbeat_at?: string | null;
+        };
+        /** BuyDownIn */
+        BuyDownIn: {
+            /** Debt Points */
+            debt_points: number;
         };
         /** CharacterOut */
         CharacterOut: {
@@ -694,40 +881,28 @@ export interface components {
             /** Signature Flavor */
             signature_flavor?: string | null;
         };
+        /** ChastityBlock */
+        ChastityBlock: {
+            /** Locked */
+            locked: boolean;
+            /** Ends At */
+            ends_at: string | null;
+            /** Seconds Remaining */
+            seconds_remaining: number;
+        };
+        /** ChastityOut */
+        ChastityOut: {
+            /** Locked */
+            locked: boolean;
+            /** Ends At */
+            ends_at: string | null;
+            /** Seconds Remaining */
+            seconds_remaining: number;
+        };
         /** ChatPost */
         ChatPost: {
             /** Content */
             content: string;
-        };
-        /** DenialTimerIn */
-        DenialTimerIn: {
-            /**
-             * Reason
-             * @default
-             */
-            reason: string;
-            /**
-             * Ends At
-             * Format: date-time
-             */
-            ends_at: string;
-        };
-        /** DenialTimerOut */
-        DenialTimerOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Reason */
-            reason: string;
-            /**
-             * Ends At
-             * Format: date-time
-             */
-            ends_at: string;
-            /** Active */
-            active: boolean;
         };
         /** DispositionBlock */
         DispositionBlock: {
@@ -759,10 +934,35 @@ export interface components {
             merit: number;
             /** Tokens */
             tokens: number;
+            /** Debt */
+            debt: number;
             disposition: components["schemas"]["DispositionBlock"];
             active_task: components["schemas"]["ActiveTask"] | null;
-            /** Denial Timers */
-            denial_timers: number;
+            chastity: components["schemas"]["ChastityBlock"];
+            /** Supervision Mode */
+            supervision_mode: string;
+        };
+        /** DroneNoticeOut */
+        DroneNoticeOut: {
+            /** Unit */
+            unit: string;
+            /** Line */
+            line: string;
+        };
+        /** GenerateBatchOut */
+        GenerateBatchOut: {
+            /** Tasks Added */
+            tasks_added: number;
+            /** Lines Added */
+            lines_added: number;
+            /** Punishments Added */
+            punishments_added: number;
+            /** Task Pool */
+            task_pool: number;
+            /** Line Bank */
+            line_bank: number;
+            /** Punishment Pool */
+            punishment_pool: number;
         };
         /** GoalIn */
         GoalIn: {
@@ -797,6 +997,14 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HeartbeatIn */
+        HeartbeatIn: {
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+        };
         /** HiatusIn */
         HiatusIn: {
             /** On */
@@ -824,6 +1032,13 @@ export interface components {
             /** Entries */
             entries: components["schemas"]["KinkItem"][];
         };
+        /**
+         * LLMAvailability
+         * @description System-wide presence of the home-box LLM (Addendum B2). Computed from the
+         *     last heartbeat's freshness, not stored as a column.
+         * @enum {string}
+         */
+        LLMAvailability: "offline" | "online";
         /** LowerLimitIn */
         LowerLimitIn: {
             /** Kink */
@@ -856,6 +1071,21 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** PoolStatusOut */
+        PoolStatusOut: {
+            /** Task Pool */
+            task_pool: number;
+            /** Line Bank */
+            line_bank: number;
+            /** Punishment Pool */
+            punishment_pool: number;
+            /** Task Pool Low */
+            task_pool_low: boolean;
+            /** Line Bank Low */
+            line_bank_low: boolean;
+            /** Punishment Pool Low */
+            punishment_pool_low: boolean;
         };
         /** PreferencesIn */
         PreferencesIn: {
@@ -944,6 +1174,29 @@ export interface components {
             /** Consent Check Due */
             consent_check_due: boolean;
         };
+        /** SetChastityIn */
+        SetChastityIn: {
+            /** Hours */
+            hours: number;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** SetModeIn */
+        SetModeIn: {
+            mode: components["schemas"]["SupervisionMode"];
+        };
+        /** SetNoteIn */
+        SetNoteIn: {
+            mode: components["schemas"]["SupervisionMode"];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** SoContextIn */
         SoContextIn: {
             /**
@@ -956,6 +1209,11 @@ export interface components {
             /** Dynamic */
             dynamic?: string | null;
         };
+        /** StandingOrdersOut */
+        StandingOrdersOut: {
+            /** Notices */
+            notices: components["schemas"]["DroneNoticeOut"][];
+        };
         /** StandingOut */
         StandingOut: {
             /** Merit */
@@ -964,8 +1222,9 @@ export interface components {
             rank: string;
             /** Tokens */
             tokens: number;
-            /** Denial Timers */
-            denial_timers: components["schemas"]["DenialTimerOut"][];
+            /** Debt */
+            debt: number;
+            chastity: components["schemas"]["ChastityOut"];
         };
         /** StopReceiptOut */
         StopReceiptOut: {
@@ -979,6 +1238,21 @@ export interface components {
             aftercare: string;
             /** Message */
             message: string;
+        };
+        /**
+         * SupervisionMode
+         * @description How deeply the sub can be controlled right now (Addendum B6). Set manually;
+         *     binds both the drones and the live Mistress. Vacation freezes the economy.
+         * @enum {string}
+         */
+        SupervisionMode: "full" | "discreet" | "task" | "homeoffice" | "vacation";
+        /** SupervisionOut */
+        SupervisionOut: {
+            mode: components["schemas"]["SupervisionMode"];
+            /** Notes */
+            notes: {
+                [key: string]: string;
+            };
         };
         /** TaskCreate */
         TaskCreate: {
@@ -1048,6 +1322,21 @@ export interface components {
             intiface_capable: boolean;
             /** Notes */
             notes?: string | null;
+            /**
+             * Noise
+             * @default false
+             */
+            noise: boolean;
+            /**
+             * Visibility
+             * @default false
+             */
+            visibility: boolean;
+            /**
+             * Discreet Capable
+             * @default false
+             */
+            discreet_capable: boolean;
         };
         /** ToyOut */
         ToyOut: {
@@ -1062,10 +1351,44 @@ export interface components {
             /** Notes */
             notes?: string | null;
             /**
+             * Noise
+             * @default false
+             */
+            noise: boolean;
+            /**
+             * Visibility
+             * @default false
+             */
+            visibility: boolean;
+            /**
+             * Discreet Capable
+             * @default false
+             */
+            discreet_capable: boolean;
+            /**
              * Id
              * Format: uuid
              */
             id: string;
+        };
+        /**
+         * ToyPatch
+         * @description Partial update for an existing toy — every field optional.
+         */
+        ToyPatch: {
+            /** Name */
+            name?: string | null;
+            type?: components["schemas"]["ToyType"] | null;
+            /** Notes */
+            notes?: string | null;
+            /** Intiface Capable */
+            intiface_capable?: boolean | null;
+            /** Noise */
+            noise?: boolean | null;
+            /** Visibility */
+            visibility?: boolean | null;
+            /** Discreet Capable */
+            discreet_capable?: boolean | null;
         };
         /**
          * ToyType
@@ -1289,6 +1612,42 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_toy_profile__profile_id__toys__toy_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+                toy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToyPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1961,7 +2320,7 @@ export interface operations {
             };
         };
     };
-    set_denial_timer_profile__profile_id__denial_timer_post: {
+    set_chastity_profile__profile_id__chastity_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1972,17 +2331,17 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DenialTimerIn"];
+                "application/json": components["schemas"]["SetChastityIn"];
             };
         };
         responses: {
             /** @description Successful Response */
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DenialTimerOut"];
+                    "application/json": components["schemas"]["StandingOut"];
                 };
             };
             /** @description Validation Error */
@@ -1996,7 +2355,7 @@ export interface operations {
             };
         };
     };
-    clear_denial_timers_profile__profile_id__denial_timer_clear_post: {
+    lift_chastity_profile__profile_id__chastity_lift_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2013,9 +2372,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["StandingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    buy_down_debt_profile__profile_id__debt_buy_down_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuyDownIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandingOut"];
                 };
             };
             /** @description Validation Error */
@@ -2307,6 +2699,253 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DossierOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    heartbeat_llm_heartbeat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeartbeatIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    availability_llm_availability_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityOut"];
+                };
+            };
+        };
+    };
+    generate_batch_profile__profile_id__batch_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateBatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    batch_status_profile__profile_id__batch_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    standing_orders_profile__profile_id__standing_orders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandingOrdersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_supervision_profile__profile_id__supervision_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupervisionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_mode_profile__profile_id__supervision_mode_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetModeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupervisionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_note_profile__profile_id__supervision_note_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupervisionOut"];
                 };
             };
             /** @description Validation Error */

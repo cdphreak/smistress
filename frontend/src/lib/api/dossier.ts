@@ -6,8 +6,9 @@ export interface Dossier {
   tokens: number;
   debt: number;
   disposition: { band: string; line: string; reason: string; standing: number };
-  active_task: { description: string; status: string } | null;
+  active_task: { description: string; status: string; intensity: number; discreetness: string } | null;
   chastity: { locked: boolean; ends_at: string | null; seconds_remaining: number };
+  supervision_mode: string;
 }
 
 export const getDossier = (id: string) => api.get(`/api/profile/${id}/dossier`) as Promise<Dossier>;

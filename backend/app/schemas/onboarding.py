@@ -83,6 +83,18 @@ class ToyOut(ToyIn):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ToyPatch(BaseModel):
+    """Partial update for an existing toy — every field optional."""
+
+    name: str | None = None
+    type: ToyType | None = None
+    notes: str | None = None
+    intiface_capable: bool | None = None
+    noise: bool | None = None
+    visibility: bool | None = None
+    discreet_capable: bool | None = None
+
+
 # ---- goals ----------------------------------------------------------------
 class GoalIn(BaseModel):
     title: str

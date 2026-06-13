@@ -39,6 +39,7 @@ export function makeClient(base = '', fetchFn: typeof fetch = fetch) {
     get: (p: string) => request('GET', p),
     post: (p: string, b?: unknown) => request('POST', p, b),
     put: (p: string, b?: unknown) => request('PUT', p, b),
+    patch: (p: string, b?: unknown) => request('PATCH', p, b),
     del: (p: string) => request('DELETE', p)
   };
 }

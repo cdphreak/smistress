@@ -5,6 +5,7 @@
   import { chat } from '$lib/stores/chat.svelte';
   import { dossier } from '$lib/stores/dossier.svelte';
   import { availability } from '$lib/stores/availability.svelte';
+  import { supervision } from '$lib/stores/supervision.svelte';
   import { drones } from '$lib/stores/drones.svelte';
   import { safety } from '$lib/stores/safety.svelte';
   import { isSafeword } from '$lib/safety/phrases';
@@ -23,6 +24,7 @@
     }
     await availability.refresh();
     await dossier.refresh();
+    await supervision.refresh();
     if (availability.online) await chat.load();
     else await drones.refresh();
   });

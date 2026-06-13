@@ -15,6 +15,7 @@ from app.llm.types import ChatMessage
 from app.memory.store import MemoryStore
 from app.persona import service as persona_svc
 from app.services import profile as profile_svc
+from app.supervision import service as sup_svc
 
 # Most-recent turns sent back to the model as context (bounds the prompt size).
 HISTORY_LIMIT = 20
@@ -76,6 +77,7 @@ async def build_dossier(session: AsyncSession, profile_id: uuid.UUID) -> dict:
         .order_by(Task.created_at.desc())
         .limit(1)
     )).scalars().first()
+    mode = await sup_svc.get_mode(session, profile_id)
     return {
         "rank": econ.rank,
         "merit": econ.merit,
@@ -87,10 +89,16 @@ async def build_dossier(session: AsyncSession, profile_id: uuid.UUID) -> dict:
             "standing": disposition.standing,
         },
         "active_task": (
-            {"description": active.description, "status": active.status.value}
+            {
+                "description": active.description,
+                "status": active.status.value,
+                "intensity": active.intensity,
+                "discreetness": active.discreetness.value,
+            }
             if active is not None
             else None
         ),
+        "supervision_mode": mode.value,
         "debt": econ.debt,
         "chastity": {
             "locked": chastity.locked,

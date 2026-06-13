@@ -21,6 +21,7 @@ from app.schemas.onboarding import (
     SoContextIn,
     ToyIn,
     ToyOut,
+    ToyPatch,
 )
 from app.services import profile as svc
 from app.services.archetype import score_archetypes, unknown_answer_ids
@@ -96,6 +97,23 @@ async def list_toys(
     except svc.ProfileNotFound:
         raise _not_found(profile_id)
     return [ToyOut.model_validate(t) for t in toys]
+
+
+@router.patch("/{profile_id}/toys/{toy_id}", response_model=ToyOut)
+async def update_toy(
+    profile_id: uuid.UUID,
+    toy_id: uuid.UUID,
+    body: ToyPatch,
+    session: AsyncSession = Depends(get_session),
+) -> ToyOut:
+    try:
+        toy = await svc.update_toy(session, profile_id, toy_id, body)
+    except svc.ToyNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"toy {toy_id} not found"
+        )
+    await session.commit()
+    return ToyOut.model_validate(toy)
 
 
 @router.post("/{profile_id}/goals", response_model=GoalOut, status_code=status.HTTP_201_CREATED)
