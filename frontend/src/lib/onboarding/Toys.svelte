@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import TextField from '$lib/design/components/TextField.svelte';
   import Select from '$lib/design/components/Select.svelte';
   type Toy = {
@@ -16,12 +17,14 @@
     initial = null
   }: { onnext: (toy: Toy | null) => void; types?: string[]; initial?: Toy | null } = $props();
 
-  let name = $state(initial?.name ?? '');
-  let type = $state(initial?.type ?? '');
-  let intiface = $state(initial?.intiface_capable ?? false);
-  let noise = $state(initial?.noise ?? false);
-  let visibility = $state(initial?.visibility ?? false);
-  let discreet = $state(initial?.discreet_capable ?? false);
+  // One-time seed: snapshot the prop so the $state initializers don't read it reactively.
+  const seed = untrack(() => initial);
+  let name = $state(seed?.name ?? '');
+  let type = $state(seed?.type ?? '');
+  let intiface = $state(seed?.intiface_capable ?? false);
+  let noise = $state(seed?.noise ?? false);
+  let visibility = $state(seed?.visibility ?? false);
+  let discreet = $state(seed?.discreet_capable ?? false);
   const editing = $derived(initial !== null);
   const ready = $derived(name.trim().length > 0 && type.length > 0);
   const options = $derived([
