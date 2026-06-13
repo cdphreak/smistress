@@ -97,6 +97,7 @@
     gap: 2px;
     background: transparent;
     border: 1px solid var(--hairline);
+    border-radius: 0;
     color: var(--ink);
     padding: 10px 12px;
     cursor: pointer;
@@ -109,6 +110,9 @@
   .mode.frozen .name::after {
     content: ' · frozen';
     color: var(--accent);
+  }
+  .mode.active.frozen .name::after {
+    color: var(--paper);
   }
   .name {
     font-family: var(--font-display);
@@ -133,6 +137,7 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     border: 1px solid var(--ink);
+    border-radius: 0;
     background: var(--ink);
     color: var(--paper);
     padding: 10px 16px;
