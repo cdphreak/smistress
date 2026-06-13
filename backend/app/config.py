@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     test_database_url: str = "postgresql+psycopg://smistress:smistress@localhost:5432/smistress_test"
     falkordb_url: str = "redis://localhost:6379"
     graphiti_enabled: bool = False  # off -> NullMemoryStore; no FalkorDB/LLM needed
+    log_prompts: bool = False  # log the assembled system prompt + turn sent to the LLM
     heartbeat_ttl_seconds: int = 90  # online iff last heartbeat is fresher than this
     batch_task_target: int = 8  # top the task pool up to this many unconsumed items
     batch_task_low: int = 2  # at/below this, the reminder unit asks for a batch window

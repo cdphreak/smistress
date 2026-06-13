@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.db.enums import KinkRating, SupervisionMode, TaskStatus
 from app.db.models.economy import EconomyState
 from app.db.models.profile import KinkEntry
@@ -21,6 +23,26 @@ from app.safety import filter as safety_filter
 from app.safety import service as safety_svc
 from app.services import profile as profile_svc
 from app.supervision import filter as sup_filter
+
+# Module-level Settings, matching the convention in availability/service.py and the api modules.
+_settings = Settings()
+
+# Dedicated prompt logger. When enabled it gets its own stderr handler so the assembled
+# prompt is visible in the backend console regardless of the app's wider logging config.
+prompt_logger = logging.getLogger("app.persona.prompt")
+if _settings.log_prompts and not prompt_logger.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s [prompt] %(message)s"))
+    prompt_logger.addHandler(_h)
+    prompt_logger.setLevel(logging.INFO)
+    prompt_logger.propagate = False
+
+
+def _log_prompt(profile_id: uuid.UUID, messages: list[ChatMessage]) -> None:
+    """Emit the full message list (system prompt + conversation) sent to the LLM."""
+    rendered = "\n\n".join(f"[{m.role}]\n{m.content}" for m in messages)
+    prompt_logger.info("turn for profile %s — %d messages:\n%s", profile_id, len(messages), rendered)
+
 
 # Task statuses that count as "resolved" history for mood, newest first.
 _RESOLVED = (TaskStatus.VERIFIED_PASS, TaskStatus.VERIFIED_FAIL, TaskStatus.MISSED)
@@ -169,6 +191,8 @@ async def generate_reply(
         memory = await retrieve_memory(store, group_id=str(profile_id), query=latest_user)
     system_prompt = await compile_persona_prompt(session, profile_id, memory=memory)
     messages = [ChatMessage(role="system", content=system_prompt), *conversation]
+    if _settings.log_prompts:
+        _log_prompt(profile_id, messages)
     result = await provider.chat(messages)
 
     # 5. Output filter: block/regenerate anything crossing a hard limit.
