@@ -58,7 +58,12 @@ async def post_message(
     )
 
     clean, action = tools.parse_action(result.content)
-    card = await tools.execute_action(session, profile_id, action) if action else None
+    # The user's turn doubles as the proof report for complete_task; provider runs the verifier.
+    card = (
+        await tools.execute_action(session, profile_id, action, report=content, provider=provider)
+        if action
+        else None
+    )
 
     reply = Message(profile_id=profile_id, role="assistant", content=clean, action=card)
     session.add(reply)
