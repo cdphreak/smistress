@@ -35,7 +35,6 @@ if _settings.log_prompts and not prompt_logger.handlers:
     _h.setFormatter(logging.Formatter("%(asctime)s [prompt] %(message)s"))
     prompt_logger.addHandler(_h)
     prompt_logger.setLevel(logging.INFO)
-    prompt_logger.propagate = False
 
 
 def _log_prompt(profile_id: uuid.UUID, messages: list[ChatMessage]) -> None:
