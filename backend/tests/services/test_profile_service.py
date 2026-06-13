@@ -106,3 +106,22 @@ async def test_update_toy_wrong_profile_raises(session):
 
     with pytest.raises(svc.ToyNotFound):
         await svc.update_toy(session, uuid.uuid4(), toy.id, ToyPatch(noise=True))
+
+
+async def test_update_toy_patches_type_and_ignores_none(session):
+    from app.schemas.onboarding import ToyIn, ToyPatch
+    from app.services import profile as svc
+
+    p = await svc.create_profile(
+        session, ProfileCreate(is_adult=True, consent_acknowledged=True)
+    )
+    await session.flush()
+    toy = await svc.add_toy(session, p.id, ToyIn(name="Apex", type="vibrator"))
+    await session.flush()
+
+    # type is converted to its plain string value; an explicit None is ignored (no DB error)
+    updated = await svc.update_toy(
+        session, p.id, toy.id, ToyPatch(type="wand", name=None)
+    )
+    assert updated.type == "wand"
+    assert updated.name == "Apex"  # name=None was ignored, not nulled

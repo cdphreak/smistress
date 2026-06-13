@@ -171,9 +171,11 @@ async def update_toy(
     if toy is None:
         raise ToyNotFound(f"toy {toy_id} not found for profile {profile_id}")
     data = patch.model_dump(exclude_unset=True)
-    if "type" in data and data["type"] is not None:
-        data["type"] = data["type"].value  # String column stores the plain enum value
     for field, value in data.items():
+        if value is None:
+            continue  # PATCH never nulls a column (only `notes` is nullable; clear via "")
+        if field == "type":
+            value = value.value  # String column stores the plain enum value
         setattr(toy, field, value)
     await session.flush()
     return toy
