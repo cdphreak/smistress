@@ -85,6 +85,18 @@ live dossier). Photo/video proof verification is stubbed until a vision model is
 
 ## Quickstart
 
+> **Windows, all on one machine?** Run everything — Docker infra, migrations,
+> backend, frontend, and the heartbeat agent — with one command:
+>
+> ```powershell
+> .\start.ps1     # opens backend / frontend / heartbeat in their own windows
+> .\stop.ps1      # stops them all (and the containers)
+> ```
+>
+> The rest of this section is the manual, cross-platform path that `start.ps1`
+> automates. See [Windows notes](#windows-notes) for *why* the script always
+> uses `--reload` and starts a heartbeat agent.
+
 ### 1. Start infrastructure
 
 ```bash
@@ -119,6 +131,39 @@ In dev, the BFF proxy forwards `/api/*` to `http://localhost:8000` by default. P
 by setting `API_ORIGIN` for the SvelteKit server. Open the app and the root route guides you into
 the onboarding wizard.
 
+### 4. Heartbeat agent (so the Mistress shows up)
+
+Availability is **heartbeat-driven**: the app reports the Mistress `online` only while fresh
+heartbeats are arriving (see [the design](#the-core-obedience-loop) and the `home-box heartbeat
+agent`). Without it, the app shows her as **away** even when your LLM is up. Run the agent — for an
+all-in-one local box, point it at the local backend:
+
+```bash
+cd backend
+SMISTRESS_VPS_URL=http://localhost:8000 \
+SMISTRESS_LLM_BASE_URL=http://localhost:11434/v1 \
+SMISTRESS_HEARTBEAT_INTERVAL=30 \
+uv run python -m app.agent.heartbeat
+```
+
+It probes the local LLM's `/models` and POSTs `/llm/heartbeat` every interval. The frontend reads
+availability **on page load**, so reload the app once the agent logs `heartbeat sent`. (In a real
+deployment the agent runs on the home GPU box and points at your VPS — see
+[`backend/app/agent/README.md`](backend/app/agent/README.md).)
+
+---
+
+## Windows notes
+
+Two things differ on Windows; `start.ps1` handles both for you.
+
+- **Always run the backend with `--reload`.** Async `psycopg` cannot use Windows' default
+  `ProactorEventLoop`. uvicorn selects the compatible `SelectorEventLoop` only for its subprocess
+  (reload) mode, so a plain `uvicorn app.main:app` makes every DB call fail with a 500
+  (`Psycopg cannot use the 'ProactorEventLoop'`). `uv run uvicorn app.main:app --reload` works.
+- **Start the heartbeat agent** (step 4) or the Mistress stays "away" — the quickstart's backend +
+  frontend alone never write a heartbeat.
+
 ---
 
 ## Configuration
@@ -135,6 +180,9 @@ All backend settings are environment variables prefixed `SMISTRESS_` (loaded fro
 | `SMISTRESS_DATABASE_URL` | PostgreSQL DSN | `postgresql+psycopg://smistress:smistress@localhost:5432/smistress` |
 | `SMISTRESS_GRAPHITI_ENABLED` | Enable the Graphiti/FalkorDB memory graph. Off ⇒ a no-op memory store (no FalkorDB/embeddings needed). | `false` |
 | `SMISTRESS_FALKORDB_URL` | FalkorDB connection (when memory is enabled) | `redis://localhost:6379` |
+| `SMISTRESS_HEARTBEAT_TTL_SECONDS` | Backend: max age of the last heartbeat before the Mistress flips to `offline`. | `90` |
+| `SMISTRESS_VPS_URL` | Heartbeat agent: where to POST `/llm/heartbeat`. For all-in-one local dev, the backend itself (`http://localhost:8000`). | *(required by the agent)* |
+| `SMISTRESS_HEARTBEAT_INTERVAL` | Heartbeat agent: seconds between beats (keep well under the TTL). | `30` |
 
 Frontend: `API_ORIGIN` (SvelteKit server, server-only) sets the backend the BFF proxy targets.
 
@@ -198,6 +246,7 @@ frontend/
     routes/         # SvelteKit routes (incl. /api/[...path] proxy, /onboarding/[step])
 docs/               # design specs & plans
 docker-compose.yml  # Postgres + FalkorDB
+start.ps1 / stop.ps1 # Windows: start/stop the whole local stack (see Quickstart)
 ```
 
 ---
