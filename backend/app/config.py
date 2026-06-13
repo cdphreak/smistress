@@ -1,10 +1,17 @@
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The canonical .env lives at the repo root (see README), but the backend is run
+# from backend/. Resolve it by absolute path so settings load regardless of the
+# process working directory; a backend-local .env still wins if present.
+_ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_prefix="SMISTRESS_", extra="ignore"
+        env_file=(_ROOT_ENV, ".env"), env_prefix="SMISTRESS_", extra="ignore"
     )
 
     llm_base_url: str = "http://localhost:11434/v1"
