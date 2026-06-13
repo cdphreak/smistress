@@ -180,6 +180,7 @@ All backend settings are environment variables prefixed `SMISTRESS_` (loaded fro
 | `SMISTRESS_DATABASE_URL` | PostgreSQL DSN | `postgresql+psycopg://smistress:smistress@localhost:5432/smistress` |
 | `SMISTRESS_GRAPHITI_ENABLED` | Enable the Graphiti/FalkorDB memory graph. Off ⇒ a no-op memory store (no FalkorDB/embeddings needed). | `false` |
 | `SMISTRESS_FALKORDB_URL` | FalkorDB connection (when memory is enabled) | `redis://localhost:6379` |
+| `SMISTRESS_LOG_PROMPTS` | Log the full assembled prompt (system + turn) to the backend console on each chat turn. | `false` |
 | `SMISTRESS_HEARTBEAT_TTL_SECONDS` | Backend: max age of the last heartbeat before the Mistress flips to `offline`. | `90` |
 | `SMISTRESS_VPS_URL` | Heartbeat agent: where to POST `/llm/heartbeat`. For all-in-one local dev, the backend itself (`http://localhost:8000`). | *(required by the agent)* |
 | `SMISTRESS_HEARTBEAT_INTERVAL` | Heartbeat agent: seconds between beats (keep well under the TTL). | `30` |
