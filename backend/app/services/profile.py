@@ -31,10 +31,15 @@ from app.schemas.onboarding import (
     ProfileCreate,
     SoContextIn,
     ToyIn,
+    ToyPatch,
 )
 
 
 class ProfileNotFound(Exception):
+    pass
+
+
+class ToyNotFound(Exception):
     pass
 
 
@@ -153,6 +158,23 @@ async def add_toy(session: AsyncSession, profile_id: uuid.UUID, data: ToyIn) -> 
         discreet_capable=data.discreet_capable,
     )
     session.add(toy)
+    await session.flush()
+    return toy
+
+
+async def update_toy(
+    session: AsyncSession, profile_id: uuid.UUID, toy_id: uuid.UUID, patch: ToyPatch
+) -> Toy:
+    toy = (await session.execute(
+        select(Toy).where(Toy.id == toy_id, Toy.profile_id == profile_id)
+    )).scalar_one_or_none()
+    if toy is None:
+        raise ToyNotFound(f"toy {toy_id} not found for profile {profile_id}")
+    data = patch.model_dump(exclude_unset=True)
+    if "type" in data and data["type"] is not None:
+        data["type"] = data["type"].value  # String column stores the plain enum value
+    for field, value in data.items():
+        setattr(toy, field, value)
     await session.flush()
     return toy
 
