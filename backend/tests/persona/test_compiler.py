@@ -52,6 +52,7 @@ def test_prompt_describes_the_action_tools():
     )
     assert "```action" in prompt
     assert "assign_task" in prompt
+    assert "complete_task" in prompt
     assert "set_chastity" in prompt
     assert "grant_tokens" in prompt
     # weak-model adherence: blunt rule + worked examples so she emits the block,
