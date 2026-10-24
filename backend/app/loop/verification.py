@@ -15,11 +15,12 @@ PASS = "pass"
 FAIL = "fail"
 RE_PROOF = "re_proof"
 PENDING = "pending"
+PENDING_REVIEW = "pending_review"
 
 
 @dataclass
 class VerdictResult:
-    verdict: str  # pass | fail | re_proof | pending
+    verdict: str  # pass | fail | re_proof | pending | pending_review
     confidence: int | None  # 0-100, or None when not applicable
     reasoning: str
     issues: list[str] = field(default_factory=list)
@@ -41,18 +42,19 @@ def verify_timer(timer: TaskTimer) -> VerdictResult:
     )
 
 
-def verify_media(settings: Settings) -> VerdictResult:
-    # Configurable vision (spec 2): no vision model -> auto-pass (honor system for media).
-    if not settings.vision_enabled:
-        return VerdictResult(PASS, None, "no vision model configured — auto-passed", [])
-    # Real image verification is M6b; until then a configured-vision media proof is pending.
-    return VerdictResult(PENDING, None, "vision verification pending (M6b)", ["vision pending"])
-
-
 _HONOR_SYSTEM = (
     "You are a strict, fair verifier of a completed real-world task. Judge ONLY whether the "
     "written report credibly demonstrates the task was completed as required. Be exacting: "
     "vague, evasive, or internally inconsistent reports fail or require re-proof. "
+    'Respond with ONLY a JSON object: {"verdict": "pass"|"fail"|"re_proof", '
+    '"confidence": <0-100 integer>, "reasoning": "<one sentence>", "issues": ["<short>", ...]}'
+)
+
+_VISION_SYSTEM = (
+    "You are a strict, fair verifier of a completed real-world task. Judge ONLY whether the "
+    "attached photo or video credibly demonstrates that the task described below was completed "
+    "as required. Be exacting: vague framing, edited or staged-looking media, wrong activity, "
+    "or anything inconclusive fails or requires re-proof. "
     'Respond with ONLY a JSON object: {"verdict": "pass"|"fail"|"re_proof", '
     '"confidence": <0-100 integer>, "reasoning": "<one sentence>", "issues": ["<short>", ...]}'
 )
@@ -99,6 +101,36 @@ async def verify_honor(report: str, task: Task, provider: LLMProvider) -> Verdic
     return _parse_verdict(result.content)
 
 
+async def verify_media(
+    task: Task, *, media_uri: str, provider: LLMProvider, settings: Settings
+) -> VerdictResult:
+    """Verify a photo/video submission with the configured vision model.
+
+    Called at settle time (never by ``verify``, which queues media proofs when vision is on).
+    """
+    if not settings.vision_enabled:
+        # No vision model -> honor system for media: auto-pass (unchanged behavior).
+        return VerdictResult(PASS, None, "no vision model configured — auto-passed", [])
+    if not provider.supports_vision:
+        return VerdictResult(
+            PENDING_REVIEW,
+            None,
+            "vision model configured but provider lacks vision support",
+            ["provider lacks vision"],
+        )
+    messages = [
+        ChatMessage(role="system", content=_VISION_SYSTEM),
+        ChatMessage(
+            role="user",
+            content=f"TASK: {task.description}\nJudge the submitted media.",
+            images=[media_uri],
+        ),
+    ]
+    # Errors from the judge propagate: settle_backlog owns retry/transient handling.
+    result = await provider.chat(messages, model=settings.vision_model)
+    return _parse_verdict(result.content)
+
+
 async def verify(
     task: Task,
     *,
@@ -117,5 +149,9 @@ async def verify(
         return verify_timer(timer)
     if pr is ProofRequirement.HONOR:
         return await verify_honor(report, task, provider)
-    # PHOTO or VIDEO
-    return verify_media(settings)
+    if pr in (ProofRequirement.PHOTO, ProofRequirement.VIDEO):
+        if settings.vision_enabled:
+            return VerdictResult(
+                PENDING_REVIEW, None, "media proof queued for her review", ["pending review"]
+            )
+        return VerdictResult(PASS, None, "no vision model configured — auto-passed", [])
