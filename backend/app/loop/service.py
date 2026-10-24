@@ -19,6 +19,8 @@ from app.safety import service as safety_svc
 from app.services import profile as profile_svc
 from app.supervision import service as sup_svc
 
+_DEFAULT_SETTINGS = Settings()
+
 
 class TaskNotFound(Exception):
     pass
@@ -63,6 +65,7 @@ async def assign_task(
     merit_fail_penalty: int = 0,
     merit_miss_penalty: int = 0,
     required_seconds: int | None = None,
+    punitive: bool = False,
 ) -> Task:
     await profile_svc.get_profile(session, profile_id)  # 404 guard
     task = Task(
@@ -74,6 +77,7 @@ async def assign_task(
         merit_fail_penalty=merit_fail_penalty,
         merit_miss_penalty=merit_miss_penalty,
         status=TaskStatus.ASSIGNED,
+        punitive=punitive,
     )
     session.add(task)
     await session.flush()
@@ -151,7 +155,10 @@ async def start_task(session: AsyncSession, task_id: uuid.UUID) -> Task:
 
 
 async def submit_proof(
-    session: AsyncSession, task_id: uuid.UUID, *, report: str = ""
+    session: AsyncSession, task_id: uuid.UUID, *,
+    report: str = "",
+    media_uri: str | None = None,
+    settings: Settings | None = None,
 ) -> Proof:
     task = await _get_task(session, task_id)
     if task.proof_requirement is ProofRequirement.TIMER:
@@ -160,7 +167,14 @@ async def submit_proof(
         )).scalar_one_or_none()
         if timer is not None and timer.stopped_at is None:
             timer.stopped_at = datetime.now(timezone.utc)
-    proof = Proof(task_id=task.id, profile_id=task.profile_id, content=report)
+    _gate = settings or _DEFAULT_SETTINGS
+    proof = Proof(task_id=task.id, profile_id=task.profile_id, content=report, media_uri=media_uri)
+    if (
+        media_uri is not None
+        and task.proof_requirement in (ProofRequirement.PHOTO, ProofRequirement.VIDEO)
+        and _gate.vision_enabled
+    ):
+        proof.verdict = "pending_review"
     session.add(proof)
     task.status = TaskStatus.PROOF_SUBMITTED
     await session.flush()
@@ -191,10 +205,14 @@ async def verify_task(
     )
 
     if proof is not None:
-        proof.verdict = result.verdict
-        proof.confidence = result.confidence
-        proof.reasoning = result.reasoning
-        proof.issues = result.issues
+        # Media-less proofs must never enter the pending_review queue: a text-only
+        # note on a photo/video task stays an honest 'pending' proof (still awaiting
+        # a real media submission). The task-status mapping below is unchanged.
+        if not (result.verdict == verification.PENDING_REVIEW and proof.media_uri is None):
+            proof.verdict = result.verdict
+            proof.confidence = result.confidence
+            proof.reasoning = result.reasoning
+            proof.issues = result.issues
 
     if result.verdict == verification.PASS:
         task.status = TaskStatus.VERIFIED_PASS

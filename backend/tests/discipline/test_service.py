@@ -71,6 +71,7 @@ async def test_issue_penance_task_creates_linked_task(session):
     assert task is not None
     assert task.status is TaskStatus.ASSIGNED
     assert task.proof_requirement is ProofRequirement.HONOR
+    assert task.punitive is True
 
 
 async def test_settle_penance_clears_debt_and_recovers_small_merit(session):

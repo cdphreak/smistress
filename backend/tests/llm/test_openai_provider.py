@@ -42,3 +42,24 @@ async def test_parses_tool_calls_and_model_override():
     assert r.content == ""
     assert r.tool_calls[0].name == "assign_task"
     assert client.chat.completions.kwargs["model"] == "other"
+
+
+async def test_formats_multipart_when_images_present():
+    client = _fake_client(SimpleNamespace(content="ok", tool_calls=None))
+    p = OpenAICompatibleProvider(
+        base_url="x", api_key="x", default_model="m", supports_vision=True, client=client
+    )
+    await p.chat([ChatMessage(role="user", content="judge this", images=["data:image/png;base64,AAA"])])
+    sent = client.chat.completions.kwargs["messages"][0]["content"]
+    assert isinstance(sent, list)
+    assert any(part.get("type") == "text" for part in sent)
+    assert any(part.get("type") == "image_url" for part in sent)
+
+
+async def test_plain_string_content_when_no_images():
+    client = _fake_client(SimpleNamespace(content="ok", tool_calls=None))
+    p = OpenAICompatibleProvider(
+        base_url="x", api_key="x", default_model="m", supports_vision=False, client=client
+    )
+    await p.chat([ChatMessage(role="user", content="yo")])
+    assert client.chat.completions.kwargs["messages"][0]["content"] == "yo"

@@ -22,3 +22,9 @@ async def test_mock_default_result_when_unscripted():
 
 def test_mock_vision_flag():
     assert MockLLMProvider(supports_vision=True).supports_vision is True
+
+
+async def test_mock_records_images_on_call():
+    p = MockLLMProvider()
+    await p.chat([ChatMessage(role="user", content="judge", images=["uri1"])])
+    assert p.calls[0][0].images == ["uri1"]

@@ -65,3 +65,33 @@ async def test_full_honor_loop_via_api(client):
 async def test_task_404(client):
     r = await client.get(f"/tasks/{uuid.uuid4()}")
     assert r.status_code == 404
+
+
+async def test_submit_proof_endpoint_accepts_media_uri(client, session):
+    pid = await _new_profile(client)
+    tid = (await client.post(f"/profile/{pid}/tasks", json={
+        "description": "posture photo", "proof_requirement": "photo",
+    })).json()["id"]
+    await client.post(f"/tasks/{tid}/start")
+    r = await client.post(f"/tasks/{tid}/proof", json={
+        "report": "", "media_uri": "data:image/png;base64,AAA",
+    })
+    assert r.status_code == 200
+    assert r.json()["status"] == "proof_submitted"
+    # Pin: the posted media_uri is persisted verbatim on the Proof row.
+    from app.db.models.loop import Proof
+    from sqlalchemy import select
+    proof = (await session.execute(
+        select(Proof).where(Proof.task_id == uuid.UUID(tid)).order_by(Proof.created_at.desc())
+    )).scalars().first()
+    assert proof is not None
+    assert proof.media_uri == "data:image/png;base64,AAA"
+
+
+async def test_task_out_carries_punitive_flag(client):
+    pid = await _new_profile(client)
+    r = await client.post(f"/profile/{pid}/tasks", json={
+        "description": "ordinary", "proof_requirement": "honor",
+    })
+    assert r.status_code == 201
+    assert r.json()["punitive"] is False

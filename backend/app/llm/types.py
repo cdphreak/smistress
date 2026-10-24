@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 class ChatMessage:
     role: str  # "system" | "user" | "assistant" | "tool"
     content: str
+    images: list[str] = field(default_factory=list)
 
 
 @dataclass

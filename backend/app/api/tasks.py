@@ -44,7 +44,7 @@ async def assign(
             description=body.description, proof_requirement=body.proof_requirement,
             deadline=body.deadline, merit_reward=body.merit_reward,
             merit_fail_penalty=body.merit_fail_penalty, merit_miss_penalty=body.merit_miss_penalty,
-            required_seconds=body.required_seconds,
+            required_seconds=body.required_seconds, punitive=body.punitive,
         )
     except profile_svc.ProfileNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="profile not found")
@@ -85,7 +85,7 @@ async def submit_proof(
     task_id: uuid.UUID, body: ProofIn, session: AsyncSession = Depends(get_session)
 ) -> TaskOut:
     try:
-        await loop_svc.submit_proof(session, task_id, report=body.report)
+        await loop_svc.submit_proof(session, task_id, report=body.report, media_uri=body.media_uri)
         task = await session.get(Task, task_id)
     except loop_svc.TaskNotFound:
         raise _task_404(task_id)

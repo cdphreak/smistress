@@ -16,6 +16,7 @@ class TaskCreate(BaseModel):
     merit_fail_penalty: int = 0
     merit_miss_penalty: int = 0
     required_seconds: int | None = None  # for timer proofs
+    punitive: bool = False
 
 
 class TaskOut(BaseModel):
@@ -27,11 +28,13 @@ class TaskOut(BaseModel):
     merit_reward: int
     merit_fail_penalty: int
     merit_miss_penalty: int
+    punitive: bool
     model_config = ConfigDict(from_attributes=True)
 
 
 class ProofIn(BaseModel):
     report: str = ""
+    media_uri: str | None = None
 
 
 class VerdictOut(BaseModel):
