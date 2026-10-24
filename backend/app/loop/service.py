@@ -205,10 +205,14 @@ async def verify_task(
     )
 
     if proof is not None:
-        proof.verdict = result.verdict
-        proof.confidence = result.confidence
-        proof.reasoning = result.reasoning
-        proof.issues = result.issues
+        # Media-less proofs must never enter the pending_review queue: a text-only
+        # note on a photo/video task stays an honest 'pending' proof (still awaiting
+        # a real media submission). The task-status mapping below is unchanged.
+        if not (result.verdict == verification.PENDING_REVIEW and proof.media_uri is None):
+            proof.verdict = result.verdict
+            proof.confidence = result.confidence
+            proof.reasoning = result.reasoning
+            proof.issues = result.issues
 
     if result.verdict == verification.PASS:
         task.status = TaskStatus.VERIFIED_PASS

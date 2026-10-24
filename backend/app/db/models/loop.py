@@ -14,7 +14,7 @@ from app.db.models.task import Task
 class Proof(Base):
     """A single proof submission for a task and its verification verdict (spec 6).
 
-    verdict is a plain string: pending | pass | fail | re_proof (no PG enum).
+    verdict is a plain string: pending | pass | fail | re_proof | pending_review | superseded (no PG enum).
     """
 
     __tablename__ = "proof"

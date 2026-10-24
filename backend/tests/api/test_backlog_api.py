@@ -71,3 +71,20 @@ async def test_settle_judges_pending_review_proof_when_online(client, session):
     assert r.status_code == 200
     body = r.json()
     assert body["judged"] == 1 and body["passed"] == 1
+
+
+async def test_settle_returns_404_for_unknown_profile_when_online(client, session):
+    await _force_online(session)
+    bogus = uuid.uuid4()
+    r = await client.post(f"/profile/{bogus}/backlog/settle")
+    assert r.status_code == 404
+    assert r.json()["detail"] == f"profile {bogus} not found"
+
+
+async def test_settle_503_gate_precedes_404_when_offline(client, session):
+    # No heartbeat -> offline. The 503 availability gate must fire BEFORE the
+    # profile-404 guard even for an unknown profile id (gate precedence pin).
+    bogus = uuid.uuid4()
+    r = await client.post(f"/profile/{bogus}/backlog/settle")
+    assert r.status_code == 503
+    assert "away" in r.json()["detail"].lower()

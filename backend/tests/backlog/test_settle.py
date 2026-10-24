@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from app.config import Settings
@@ -101,12 +101,19 @@ async def test_settle_reproof_leaves_task_proof_submitted(session):
 
 async def test_settle_dedups_duplicate_pending_review_proofs_per_task(session):
     p = await _profile(session)
-    task = await _media_proof_pending_review(session, p)  # first pending_review proof
-    await session.flush()
-    # second, newer pending_review proof for the SAME task
-    await loop_svc.submit_proof(
+    task = await _media_proof_pending_review(session, p)  # first pending_review proof (AAA)
+    aaa = (await session.execute(
+        select(Proof).where(Proof.task_id == task.id)
+    )).scalars().one()
+    # second, newer pending_review proof for the SAME task (BBB)
+    bbb = await loop_svc.submit_proof(
         session, task.id, media_uri="data:image/png;base64,BBB", settings=VISION_SETTINGS,
     )
+    # Pin explicit created_at values: AAA earlier, BBB later. They would otherwise
+    # tie on the transaction timestamp, leaving latest-wins ordering untestable.
+    base = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    aaa.created_at = base
+    bbb.created_at = base + timedelta(seconds=10)  # BBB is strictly later
     await session.commit()
 
     provider = MockLLMProvider(
@@ -127,7 +134,53 @@ async def test_settle_dedups_duplicate_pending_review_proofs_per_task(session):
     ).scalars().all()
     verdicts = sorted(pr.verdict for pr in proofs)
     assert verdicts == ["pass", "superseded"]  # older one superseded, not double-judged
+    # Latest-wins pin: BBB (the newer) is the one judged (pass); AAA is superseded.
+    judged = next(pr for pr in proofs if pr.verdict == "pass")
+    superseded = next(pr for pr in proofs if pr.verdict == "superseded")
+    assert judged.media_uri == "data:image/png;base64,BBB"
+    assert superseded.verdict == "superseded"
     assert (await econ_svc.get_economy(session, p.id)).merit == 10  # not 20
+
+
+async def test_settle_excludes_media_less_pending_review_from_dedup_and_supersedes_it(session):
+    p = await _profile(session)
+    task = await _media_proof_pending_review(session, p)  # real media proof, pending_review
+    media_proof = (await session.execute(
+        select(Proof).where(Proof.task_id == task.id)
+    )).scalars().one()
+    # Pin both timestamps explicitly so dedup ordering is deterministic (clock-drift free).
+    base = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    media_proof.created_at = base
+    await session.flush()
+    # A NEWER media-less proof, queued for review, that would WIN dedup (latest wins)
+    # if media-less rows weren't excluded from the dedup SELECT.
+    session.add(Proof(
+        task_id=task.id,
+        profile_id=p.id,
+        content="text-only note, no media attached",
+        media_uri=None,
+        verdict="pending_review",
+        created_at=base + timedelta(seconds=10),  # strictly newer than the media proof
+    ))
+    await session.commit()
+
+    provider = MockLLMProvider(supports_vision=True, scripted=[ChatResult(
+        content='{"verdict": "pass", "confidence": 90, "reasoning": "visible", "issues": []}'
+    )])
+    summary = await backlog_svc.settle_backlog(
+        session, p.id, provider=provider, settings=VISION_SETTINGS,
+    )
+    await session.commit()
+
+    assert summary.judged == 1
+    rows = (await session.execute(select(Proof).where(Proof.task_id == task.id))).scalars().all()
+    by_media = {pr.media_uri: pr for pr in rows}
+    media_pr = by_media["data:image/png;base64,AAA"]
+    none_pr = by_media[None]
+    # The MEDIA proof is judged (pass); the media-less row is CLOSED (superseded),
+    # never left to clog the queue forever.
+    assert media_pr.verdict == "pass"
+    assert none_pr.verdict == "superseded"
 
 
 async def test_settle_skips_and_logs_when_provider_lacks_vision(caplog, session):

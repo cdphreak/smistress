@@ -241,3 +241,31 @@ async def test_verify_task_on_vision_media_proof_stays_proof_submitted(session):
     )
     await session.commit()
     assert verified.status is TaskStatus.PROOF_SUBMITTED  # awaits settle, not auto-passed
+
+
+async def test_verify_task_text_only_proof_on_photo_task_keeps_proof_pending(session):
+    p = await _profile(session)
+    task = await loop_svc.assign_task(
+        session, p.id, description="kneeling photo", proof_requirement=ProofRequirement.PHOTO,
+    )
+    await session.commit()
+    await loop_svc.start_task(session, task.id)
+    await session.commit()
+    # text-only proof: a report with NO media_uri (media-less).
+    await loop_svc.submit_proof(session, task.id, report="i knelt, no camera nearby")
+    await session.commit()
+
+    verified = await loop_svc.verify_task(
+        session, task.id, MockLLMProvider(supports_vision=True),
+        Settings(vision_model="qwen2.5-vl"),
+    )
+    await session.commit()
+
+    # A media-less note on a photo task must stay an honest 'pending' proof — it
+    # must NEVER be stamped into the pending_review queue (nothing to show her).
+    assert verified.status is TaskStatus.PROOF_SUBMITTED  # awaits a real submission
+    pr = (await session.execute(select(Proof).where(Proof.task_id == task.id))).scalar_one()
+    assert pr.verdict == "pending"
+    assert pr.media_uri is None
+    assert pr.confidence is None  # not stamped
+    assert pr.reasoning == ""       # not stamped

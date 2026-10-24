@@ -12,6 +12,7 @@ from app.db.session import get_session
 from app.llm.factory import build_provider
 from app.llm.provider import LLMProvider
 from app.schemas.backlog import SettlementOut
+from app.services import profile as profile_svc
 
 router = APIRouter(tags=["backlog"])
 
@@ -34,6 +35,13 @@ async def settle(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="The Mistress is away — nothing to settle.",
+        )
+    try:
+        await profile_svc.get_profile(session, profile_id)
+    except profile_svc.ProfileNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"profile {profile_id} not found",
         )
     summary = await backlog_svc.settle_backlog(
         session, profile_id, provider=provider, settings=_settings,

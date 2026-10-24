@@ -104,3 +104,28 @@ async def test_verify_routes_photo_to_pass_when_no_vision():
     v = await verify(task, report="", timer=None,
                      provider=MockLLMProvider(), settings=Settings())
     assert v.verdict == "pass"
+
+
+async def test_verify_media_forwards_configured_vision_model_to_provider():
+    # Spy: records the model= kwarg verify_media forwards, then delegates to the
+    # stock mock to replay the scripted verdict.
+    class _SpyProvider(MockLLMProvider):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.observed_model: str | None = "UNSET"
+
+        async def chat(self, messages, *, model=None, tools=None):
+            self.observed_model = model
+            return await super().chat(messages, model=model, tools=tools)
+
+    spy = _SpyProvider(supports_vision=True, scripted=[ChatResult(
+        content='{"verdict": "pass", "confidence": 88, "reasoning": "ok", "issues": []}'
+    )])
+    v = await verify_media(
+        _photo_task(),
+        media_uri="data:image/png;base64,AAA",
+        provider=spy,
+        settings=Settings(vision_model="qwen2.5-vl"),
+    )
+    assert v.verdict == "pass"
+    assert spy.observed_model == "qwen2.5-vl"

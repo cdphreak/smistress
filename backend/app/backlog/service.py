@@ -48,6 +48,9 @@ async def settle_backlog(
     older duplicates are stamped ``superseded`` — the single-outcome-per-task
     invariant), invokes the vision judge, and applies merit/debt via the existing
     economy + discipline units. Services flush; the caller commits.
+
+    A settle drains up to ``drain_outbox``'s limit (50) pending memory episodes
+    per call; repeated settles continue draining the remainder.
     """
     summary = SettlementSummary()
     now = now or datetime.now(timezone.utc)
@@ -59,10 +62,18 @@ async def settle_backlog(
     )
 
     # 2. Per-task dedup: latest pending_review proof per task wins (DISTINCT ON).
+    # Belt-and-braces: a media-less row can never be picked for judging (a text-
+    # only note has nothing to show her). The supersede step below intentionally
+    # keeps its FULL pending_review-of-profile scope so a stray media-less row is
+    # CLOSED (superseded) rather than clogging the queue forever.
     dedup_stmt = (
         select(Proof)
         .distinct(Proof.task_id)
-        .where(Proof.verdict == "pending_review", Proof.profile_id == profile_id)
+        .where(
+            Proof.verdict == "pending_review",
+            Proof.profile_id == profile_id,
+            Proof.media_uri.is_not(None),
+        )
         .order_by(Proof.task_id, Proof.created_at.desc())
     )
     judged_proofs = (await session.execute(dedup_stmt)).scalars().all()
