@@ -36,19 +36,19 @@ async def enqueue_episode(
 
 
 async def drain_outbox(
-    session: AsyncSession, store: MemoryStore, *, limit: int = 50
+    session: AsyncSession, store: MemoryStore, *,
+    limit: int = 50, profile_id: uuid.UUID | None = None,
 ) -> int:
     """Push pending episodes to the store. Returns how many succeeded.
 
     Failures leave the row 'pending' with an incremented attempt count + error, so
     the next drain retries them (spec 3 'writes queue and retry'). Caller commits.
     """
-    pending = (await session.execute(
-        select(MemoryEpisode)
-        .where(MemoryEpisode.status == "pending")
-        .order_by(MemoryEpisode.created_at)
-        .limit(limit)
-    )).scalars().all()
+    stmt = select(MemoryEpisode).where(MemoryEpisode.status == "pending")
+    if profile_id is not None:
+        stmt = stmt.where(MemoryEpisode.profile_id == profile_id)
+    stmt = stmt.order_by(MemoryEpisode.created_at).limit(limit)
+    pending = (await session.execute(stmt)).scalars().all()
 
     pushed = 0
     for ep in pending:
