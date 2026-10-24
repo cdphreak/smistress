@@ -30,9 +30,17 @@ class OpenAICompatibleProvider:
         model: str | None = None,
         tools: list[dict] | None = None,
     ) -> ChatResult:
+        def _msg_content(m):
+            if not m.images:
+                return m.content
+            parts = [{"type": "text", "text": m.content}]
+            parts += [{"type": "image_url", "image_url": {"url": u}} for u in m.images]
+            return parts
+
+        msgs = [{"role": m.role, "content": _msg_content(m)} for m in messages]
         resp = await self._client.chat.completions.create(
             model=model or self._default_model,
-            messages=[{"role": m.role, "content": m.content} for m in messages],
+            messages=msgs,
             tools=tools or None,
         )
         choice = resp.choices[0].message

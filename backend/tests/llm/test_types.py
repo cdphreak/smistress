@@ -15,3 +15,9 @@ def test_tool_call_fields():
 def test_chat_message_role_content():
     m = ChatMessage(role="user", content="ping")
     assert m.role == "user"
+
+
+def test_chatmessage_images_defaults_empty():
+    from app.llm.types import ChatMessage
+    m = ChatMessage(role="user", content="hi")
+    assert m.images == []
