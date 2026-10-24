@@ -23,6 +23,7 @@ class Proof(Base):
     task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("task.id"))
     profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sub_profile.id"))
     content: Mapped[str] = mapped_column(Text, default="")  # honor report / timer note
+    media_uri: Mapped[str | None] = mapped_column(String, default=None)
 
     verdict: Mapped[str] = mapped_column(String, default="pending")
     confidence: Mapped[int | None] = mapped_column(default=None)  # 0-100, None when n/a

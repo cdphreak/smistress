@@ -35,3 +35,11 @@ async def test_task_timer_defaults(session):
     assert tt.required_seconds == 600
     assert tt.started_at is None
     assert tt.stopped_at is None
+
+
+async def test_proof_media_uri_nullable_default(session):
+    t = await _task(session)
+    session.add(Proof(task_id=t.id, profile_id=t.profile_id, content=""))
+    await session.commit()
+    pr = (await session.execute(select(Proof))).scalar_one()
+    assert pr.media_uri is None
