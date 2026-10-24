@@ -621,6 +621,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/profile/{profile_id}/backlog/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle
+         * @description Manual settle beat: drain the memory outbox, then judge queued media proofs.
+         */
+        post: operations["settle_profile__profile_id__backlog_settle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profile/{profile_id}/batch/generate": {
         parameters: {
             query?: never;
@@ -1159,6 +1179,8 @@ export interface components {
              * @default
              */
             report: string;
+            /** Media Uri */
+            media_uri?: string | null;
         };
         /**
          * ProofRequirement
@@ -1196,6 +1218,23 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** SettlementOut */
+        SettlementOut: {
+            /** Judged */
+            judged: number;
+            /** Passed */
+            passed: number;
+            /** Failed */
+            failed: number;
+            /** Re Proven */
+            re_proven: number;
+            /** Skipped */
+            skipped: number;
+            /** Errored */
+            errored: number;
+            /** Memory Drained */
+            memory_drained: number;
         };
         /** SoContextIn */
         SoContextIn: {
@@ -1279,6 +1318,11 @@ export interface components {
             merit_miss_penalty: number;
             /** Required Seconds */
             required_seconds?: number | null;
+            /**
+             * Punitive
+             * @default false
+             */
+            punitive: boolean;
         };
         /** TaskOut */
         TaskOut: {
@@ -1299,6 +1343,8 @@ export interface components {
             merit_fail_penalty: number;
             /** Merit Miss Penalty */
             merit_miss_penalty: number;
+            /** Punitive */
+            punitive: boolean;
         };
         /**
          * TaskStatus
@@ -2761,6 +2807,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AvailabilityOut"];
+                };
+            };
+        };
+    };
+    settle_profile__profile_id__backlog_settle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
