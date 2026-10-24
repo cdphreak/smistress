@@ -32,6 +32,7 @@ class TaskOut(BaseModel):
 
 class ProofIn(BaseModel):
     report: str = ""
+    media_uri: str | None = None
 
 
 class VerdictOut(BaseModel):

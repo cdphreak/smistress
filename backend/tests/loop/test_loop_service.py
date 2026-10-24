@@ -184,3 +184,60 @@ async def test_reverify_terminal_task_does_not_double_apply(session):
 
     econ = await econ_svc.get_economy(session, p.id)
     assert econ.merit == 10  # not 20
+
+
+async def test_submit_media_proof_queues_pending_review_when_vision_enabled(session):
+    p = await _profile(session)
+    task = await loop_svc.assign_task(
+        session, p.id, description="kneeling photo", proof_requirement=ProofRequirement.PHOTO,
+    )
+    await session.commit()
+    await loop_svc.start_task(session, task.id)
+    await session.commit()
+
+    proof = await loop_svc.submit_proof(
+        session, task.id, media_uri="data:image/png;base64,AAA",
+        settings=Settings(vision_model="qwen2.5-vl"),
+    )
+    await session.commit()
+
+    assert proof.media_uri == "data:image/png;base64,AAA"
+    assert proof.verdict == "pending_review"
+    refreshed = await session.get(type(task), task.id)
+    assert refreshed.status is TaskStatus.PROOF_SUBMITTED
+
+
+async def test_submit_media_proof_leaves_pending_when_no_vision(session):
+    p = await _profile(session)
+    task = await loop_svc.assign_task(
+        session, p.id, description="kneeling photo", proof_requirement=ProofRequirement.PHOTO,
+    )
+    await session.commit()
+    await loop_svc.start_task(session, task.id)
+    await session.commit()
+
+    proof = await loop_svc.submit_proof(
+        session, task.id, media_uri="data:image/png;base64,AAA",
+    )  # default Settings() has vision_model=None
+    await session.commit()
+
+    assert proof.verdict == "pending"  # NOT queued — honor-system auto-pass path
+
+
+async def test_verify_task_on_vision_media_proof_stays_proof_submitted(session):
+    p = await _profile(session)
+    task = await loop_svc.assign_task(
+        session, p.id, description="kneeling photo", proof_requirement=ProofRequirement.PHOTO,
+    )
+    await session.commit()
+    await loop_svc.start_task(session, task.id)
+    await session.commit()
+    await loop_svc.submit_proof(session, task.id, media_uri="data:image/png;base64,AAA")
+    await session.commit()
+
+    verified = await loop_svc.verify_task(
+        session, task.id, MockLLMProvider(supports_vision=False),
+        Settings(vision_model="qwen2.5-vl"),
+    )
+    await session.commit()
+    assert verified.status is TaskStatus.PROOF_SUBMITTED  # awaits settle, not auto-passed

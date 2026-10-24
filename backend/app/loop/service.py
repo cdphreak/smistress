@@ -19,6 +19,8 @@ from app.safety import service as safety_svc
 from app.services import profile as profile_svc
 from app.supervision import service as sup_svc
 
+_DEFAULT_SETTINGS = Settings()
+
 
 class TaskNotFound(Exception):
     pass
@@ -151,7 +153,10 @@ async def start_task(session: AsyncSession, task_id: uuid.UUID) -> Task:
 
 
 async def submit_proof(
-    session: AsyncSession, task_id: uuid.UUID, *, report: str = ""
+    session: AsyncSession, task_id: uuid.UUID, *,
+    report: str = "",
+    media_uri: str | None = None,
+    settings: Settings | None = None,
 ) -> Proof:
     task = await _get_task(session, task_id)
     if task.proof_requirement is ProofRequirement.TIMER:
@@ -160,7 +165,14 @@ async def submit_proof(
         )).scalar_one_or_none()
         if timer is not None and timer.stopped_at is None:
             timer.stopped_at = datetime.now(timezone.utc)
-    proof = Proof(task_id=task.id, profile_id=task.profile_id, content=report)
+    _gate = settings or _DEFAULT_SETTINGS
+    proof = Proof(task_id=task.id, profile_id=task.profile_id, content=report, media_uri=media_uri)
+    if (
+        media_uri is not None
+        and task.proof_requirement in (ProofRequirement.PHOTO, ProofRequirement.VIDEO)
+        and _gate.vision_enabled
+    ):
+        proof.verdict = "pending_review"
     session.add(proof)
     task.status = TaskStatus.PROOF_SUBMITTED
     await session.flush()

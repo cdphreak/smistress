@@ -65,3 +65,16 @@ async def test_full_honor_loop_via_api(client):
 async def test_task_404(client):
     r = await client.get(f"/tasks/{uuid.uuid4()}")
     assert r.status_code == 404
+
+
+async def test_submit_proof_endpoint_accepts_media_uri(client):
+    pid = await _new_profile(client)
+    tid = (await client.post(f"/profile/{pid}/tasks", json={
+        "description": "posture photo", "proof_requirement": "photo",
+    })).json()["id"]
+    await client.post(f"/tasks/{tid}/start")
+    r = await client.post(f"/tasks/{tid}/proof", json={
+        "report": "", "media_uri": "data:image/png;base64,AAA",
+    })
+    assert r.status_code == 200
+    assert r.json()["status"] == "proof_submitted"

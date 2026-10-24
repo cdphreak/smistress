@@ -85,7 +85,7 @@ async def submit_proof(
     task_id: uuid.UUID, body: ProofIn, session: AsyncSession = Depends(get_session)
 ) -> TaskOut:
     try:
-        await loop_svc.submit_proof(session, task_id, report=body.report)
+        await loop_svc.submit_proof(session, task_id, report=body.report, media_uri=body.media_uri)
         task = await session.get(Task, task_id)
     except loop_svc.TaskNotFound:
         raise _task_404(task_id)
