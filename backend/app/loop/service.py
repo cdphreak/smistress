@@ -65,6 +65,7 @@ async def assign_task(
     merit_fail_penalty: int = 0,
     merit_miss_penalty: int = 0,
     required_seconds: int | None = None,
+    punitive: bool = False,
 ) -> Task:
     await profile_svc.get_profile(session, profile_id)  # 404 guard
     task = Task(
@@ -76,6 +77,7 @@ async def assign_task(
         merit_fail_penalty=merit_fail_penalty,
         merit_miss_penalty=merit_miss_penalty,
         status=TaskStatus.ASSIGNED,
+        punitive=punitive,
     )
     session.add(task)
     await session.flush()

@@ -78,3 +78,12 @@ async def test_submit_proof_endpoint_accepts_media_uri(client):
     })
     assert r.status_code == 200
     assert r.json()["status"] == "proof_submitted"
+
+
+async def test_task_out_carries_punitive_flag(client):
+    pid = await _new_profile(client)
+    r = await client.post(f"/profile/{pid}/tasks", json={
+        "description": "ordinary", "proof_requirement": "honor",
+    })
+    assert r.status_code == 201
+    assert r.json()["punitive"] is False

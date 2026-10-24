@@ -54,6 +54,7 @@ async def issue_punishment(
             description=reason or "Serve your penance.",
             proof_requirement=ProofRequirement.HONOR,
             status=TaskStatus.ASSIGNED,
+            punitive=True,
         )
         session.add(task)
         await session.flush()

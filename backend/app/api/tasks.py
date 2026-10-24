@@ -44,7 +44,7 @@ async def assign(
             description=body.description, proof_requirement=body.proof_requirement,
             deadline=body.deadline, merit_reward=body.merit_reward,
             merit_fail_penalty=body.merit_fail_penalty, merit_miss_penalty=body.merit_miss_penalty,
-            required_seconds=body.required_seconds,
+            required_seconds=body.required_seconds, punitive=body.punitive,
         )
     except profile_svc.ProfileNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="profile not found")
