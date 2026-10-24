@@ -18,7 +18,7 @@
 - **Services flush, endpoints commit.** PG enums store member NAMES (no new enums this milestone). Bare-UUID cross-aggregate refs stored as strings in JSONB (none added this milestone).
 - **Swappable seam:** `LLMProvider` is a `Protocol` with `supports_vision: bool`. The mock provider MUST exercise the vision path so the suite runs fully offline. `build_provider` already wires `supports_vision=settings.vision_enabled`.
 - **Graceful degradation (spec §2/§3, flagged call #1):** with no vision model configured, media proof keeps the existing synchronous auto-pass — no queueing, no regression. `vision_enabled` gates both the eager `pending_review` stamp (submit) and the `verify()` routing.
-- **Alembic head at time of writing:** `f6a7b8c9d0e1` (`add_toy_discreetness`). The new migration chains from it.
+- **Alembic head at time of writing:** `b8c9d0e1f2a3` (`add_punishment_discreetness`) — preflight-corrected; the chain runs … → `f6a7b8c9d0e1` → `a7b8c9d0e1f2` → `b8c9d0e1f2a3`. Confirm with `uv run alembic heads` before writing the migration. The new migration chains from it.
 - **Commits:** one per task, conventional-commit messages.
 
 ---
@@ -136,7 +136,7 @@ In `backend/app/db/models/task.py`, after `required_toy_ids`:
 
 - [ ] **Step 4: Create the migration**
 
-Create `backend/alembic/versions/g7b8c9d0e1f2_add_queued_proof_memory.py` modeled on `f6a7b8c9d0e1_add_toy_discreetness.py`. Header: `revision = 'g7b8c9d0e1f2'`, `down_revision = 'f6a7b8c9d0e1'`. `upgrade()`:
+Create `backend/alembic/versions/g7b8c9d0e1f2_add_queued_proof_memory.py` modeled on `f6a7b8c9d0e1_add_toy_discreetness.py`. Header: `revision = 'g7b8c9d0e1f2'`, `down_revision = 'b8c9d0e1f2a3'` (the actual head — preflight-corrected; confirm first with `uv run alembic heads`). `upgrade()`:
 
 ```python
     op.add_column('proof', sa.Column('media_uri', sa.String(), nullable=True))
@@ -371,7 +371,7 @@ Add a constant near the top:
 PENDING_REVIEW = "pending_review"
 ```
 
-Rewrite `verify_media` to the new signature. Body: (a) if `not settings.vision_enabled` → return `VerdictResult(PASS, None, "no vision model configured — auto-passed", [])`; (b) if `not provider.supports_vision` → return `VerdictResult(PENDING_REVIEW, None, "vision model configured but provider lacks vision support", ["provider lacks vision"])`; (c) else build a multimodal message — a `_VISION_SYSTEM` prompt that mirrors `_HONOR_SYSTEM`'s JSON contract (`{"verdict": "pass"|"fail"|"re_proof", "confidence": <0-100>, "reasoning": "...", "issues": [...]}`) and instructs the model to judge the photo/video against the task description — and a user turn with `content=f"TASK: {task.description}\nJudge the submitted media."` and `images=[media_uri]`; call `provider.chat(messages)`; return `_parse_verdict(result.content)`. Wrap the `provider.chat` call so any exception propagates (Task 6's settle handles transients).
+Rewrite `verify_media` to the new signature. Body: (a) if `not settings.vision_enabled` → return `VerdictResult(PASS, None, "no vision model configured — auto-passed", [])`; (b) if `not provider.supports_vision` → return `VerdictResult(PENDING_REVIEW, None, "vision model configured but provider lacks vision support", ["provider lacks vision"])`; (c) else build a multimodal message — a `_VISION_SYSTEM` prompt that mirrors `_HONOR_SYSTEM`'s JSON contract (`{"verdict": "pass"|"fail"|"re_proof", "confidence": <0-100>, "reasoning": "...", "issues": [...]}`) and instructs the model to judge the photo/video against the task description — and a user turn with `content=f"TASK: {task.description}\nJudge the submitted media."` and `images=[media_uri]`; call `provider.chat(messages, model=settings.vision_model)` — the judge MUST hit the configured vision model, not the provider's chat-model default; return `_parse_verdict(result.content)`. Wrap the `provider.chat` call so any exception propagates (Task 6's settle handles transients).
 
 In `verify()`, replace the final `# PHOTO or VIDEO` branch:
 
@@ -405,7 +405,7 @@ git commit -m "feat(verify): real vision judge + pending_review routing for medi
 - Test: `backend/tests/loop/test_loop_service.py` (append), `backend/tests/api/test_tasks_api.py` (append)
 
 **Interfaces:**
-- Produces: `loop_svc.submit_proof(session, task_id, *, report="", media_uri=None) -> Proof`. Behavior: stores `proof.media_uri`; if `proof_requirement in (PHOTO, VIDEO)` AND `media_uri` AND `settings.vision_enabled` → `proof.verdict = "pending_review"`; else `verdict` stays the default `"pending"`. Timer-stop logic unchanged.
+- Produces: `loop_svc.submit_proof(session, task_id, *, report="", media_uri=None, settings: Settings | None = None) -> Proof`. Behavior: stores `proof.media_uri`; if `proof_requirement in (PHOTO, VIDEO)` AND `media_uri` AND the effective settings' `vision_enabled` → `proof.verdict = "pending_review"`; else `verdict` stays the default `"pending"`. Timer-stop logic unchanged. The gate must be test-controllable: `settings=None` falls back to a module-level `_DEFAULT_SETTINGS = Settings()` (vision off under the test env), and tests that want queueing pass `Settings(vision_model="qwen2.5-vl")` explicitly — mirroring `verify_task`'s explicit `(provider, settings)` pattern.
 - Produces: `ProofIn.media_uri: str | None = None`.
 - Consumes: `Proof.media_uri` (Task 1), `Settings.vision_enabled`.
 - **Review-Focus #1:** no-vision media submit leaves `verdict="pending"` (so `verify_task` auto-passes synchronously, unchanged).
@@ -426,6 +426,7 @@ async def test_submit_media_proof_queues_pending_review_when_vision_enabled(sess
 
     proof = await loop_svc.submit_proof(
         session, task.id, media_uri="data:image/png;base64,AAA",
+        settings=Settings(vision_model="qwen2.5-vl"),
     )
     await session.commit()
 
@@ -494,14 +495,15 @@ Expected: FAIL — `submit_proof() got an unexpected keyword argument 'media_uri
 
 - [ ] **Step 3: Extend `submit_proof` + schemas + endpoint**
 
-In `backend/app/loop/service.py`, change `submit_proof`'s signature to `*, report: str = "", media_uri: str | None = None` and, after creating `proof`, set `proof.media_uri = media_uri` and apply the conditional stamp. The function needs `Settings` — instantiate `_settings = Settings()` at module top (alongside the existing imports) and use `_settings.vision_enabled`. Updated tail:
+In `backend/app/loop/service.py`, change `submit_proof`'s signature to `*, report: str = "", media_uri: str | None = None, settings: Settings | None = None`. Instantiate `_DEFAULT_SETTINGS = Settings()` at module top (alongside the existing imports); inside the function use `_gate = settings or _DEFAULT_SETTINGS` and gate the stamp on `_gate.vision_enabled`. Updated tail:
 
 ```python
+    _gate = settings or _DEFAULT_SETTINGS
     proof = Proof(task_id=task.id, profile_id=task.profile_id, content=report, media_uri=media_uri)
     if (
         media_uri is not None
         and task.proof_requirement in (ProofRequirement.PHOTO, ProofRequirement.VIDEO)
-        and _settings.vision_enabled
+        and _gate.vision_enabled
     ):
         proof.verdict = "pending_review"
     session.add(proof)
@@ -694,7 +696,9 @@ async def _media_proof_pending_review(session, p, *, description="photo task"):
     await session.flush()
     await loop_svc.start_task(session, task.id)
     await session.flush()
-    await loop_svc.submit_proof(session, task.id, media_uri="data:image/png;base64,AAA")
+    await loop_svc.submit_proof(
+        session, task.id, media_uri="data:image/png;base64,AAA", settings=VISION_SETTINGS,
+    )
     await session.flush()
     return task
 
@@ -756,7 +760,9 @@ async def test_settle_dedups_duplicate_pending_review_proofs_per_task(session):
     task = await _media_proof_pending_review(session, p)  # first pending_review proof
     await session.flush()
     # second, newer pending_review proof for the SAME task
-    await loop_svc.submit_proof(session, task.id, media_uri="data:image/png;base64,BBB")
+    await loop_svc.submit_proof(
+        session, task.id, media_uri="data:image/png;base64,BBB", settings=VISION_SETTINGS,
+    )
     await session.commit()
 
     provider = MockLLMProvider(supports_vision=True, scripted=[
@@ -915,15 +921,15 @@ git commit -m "feat(backlog): settle_backlog service (vision judge + memory drai
 ## Task 7: `punitive` flag plumbing in discipline + task schemas
 
 **Files:**
-- Modify: `backend/app/discipline/service.py` (`issue_punishment`), `backend/app/schemas/task.py` (`TaskCreate`, `TaskOut`)
+- Modify: `backend/app/discipline/service.py` (`issue_punishment`), `backend/app/schemas/task.py` (`TaskCreate`, `TaskOut`), `backend/app/loop/service.py` (`assign_task` — accept + persist `punitive`), `backend/app/api/tasks.py` (assign endpoint — pass `body.punitive` through)
 - Test: `backend/tests/discipline/test_service.py` (extend `test_issue_penance_task_creates_linked_task`), `backend/tests/api/test_tasks_api.py` (assert `TaskOut.punitive`)
 
 **Interfaces:**
-- Produces: `issue_punishment` sets `punitive=True` on the penance `Task` it creates. `TaskCreate.punitive: bool = False` (additive). `TaskOut.punitive: bool` (additive, `from_attributes` populates it).
+- Produces: `issue_punishment` sets `punitive=True` on the penance `Task` it creates. `TaskCreate.punitive: bool = False` (additive, WIRED through `assign_task(punitive=...)` and the assign endpoint — an accepted-but-ignored field would be a dead contract). `TaskOut.punitive: bool` (additive, `from_attributes` populates it).
 
 - [ ] **Step 1: Write the failing tests**
 
-In `backend/tests/discipline/test_service.py`, extend `test_issue_penance_task_creates_linked_task` — add two assertions at the end:
+In `backend/tests/discipline/test_service.py`, extend `test_issue_penance_task_creates_linked_task` — add this assertion at the end:
 
 ```python
     assert task.punitive is True
@@ -974,6 +980,8 @@ and to `TaskOut` (anywhere among the int fields):
 
 (`from_attributes=True` is already set on `TaskOut`, so `TaskOut.model_validate(task)` populates it from the column.)
 
+In `backend/app/loop/service.py` `assign_task`, add keyword-only `punitive: bool = False` and pass `punitive=punitive` to the `Task(...)` constructor. In `backend/app/api/tasks.py`'s assign endpoint, pass `punitive=body.punitive` to `loop_svc.assign_task`.
+
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `PYTHONHOME= PYTHONPATH= uv run python -m pytest tests/discipline/test_service.py tests/api/test_tasks_api.py -q`
@@ -982,7 +990,7 @@ Expected: PASS (all, including the pre-existing penance-settle tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/app/discipline/service.py backend/app/schemas/task.py backend/tests/discipline/test_service.py backend/tests/api/test_tasks_api.py
+git add backend/app/discipline/service.py backend/app/schemas/task.py backend/app/loop/service.py backend/app/api/tasks.py backend/tests/discipline/test_service.py backend/tests/api/test_tasks_api.py
 git commit -m "feat: punitive flag on penance tasks + task schemas"
 ```
 
